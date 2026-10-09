@@ -1,0 +1,3 @@
+# Dependências só de desenvolvimento e CI — não vão para o runner do pipeline.
+-r requirements.txt
+pytest==9.1.1

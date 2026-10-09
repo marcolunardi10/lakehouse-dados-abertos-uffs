@@ -1,0 +1,78 @@
+# Ambientes virtuais
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Segredos e configuração local
+.env
+.env.*
+*.pem
+credentials
+acessos*.txt
+.streamlit/secrets.toml
+dashboard/.streamlit/secrets.toml
+
+# Dados locais (o data lake vive no Cloudflare R2, nunca no Git)
+data/
+*.parquet
+*.duckdb
+*.duckdb.wal
+
+notebooks/**/*.csv
+notebooks/**/*.xlsx
+
+# Documentação interna e material de apoio: ficam só na máquina por enquanto.
+# Para publicar algum depois, basta remover a linha correspondente (ou abrir
+# uma exceção, ex.: `!README.md`) — o arquivo volta a aparecer no `git status`.
+*.md
+!/README.md
+!/docs/arquitetura.md
+!/docs/dicionario-dados.md
+!/docs/indicadores.md
+!/docs/registro-decisoes.md
+evidencias/
+docs/Banca_Marco*.pdf
+
+# Logs — exceto o registro do keep-alive, que o workflow precisa commitar
+# para manter os agendamentos ativos (seção 4.2.8 da proposta)
+*.log
+!.github/keep-alive.log
+
+# Testes, cobertura e caches de ferramentas
+.coverage
+htmlcov/
+.mypy_cache/
+dist/
+build/
+
+# Configuração local do Claude Code (permissões e preferências da máquina)
+.claude/settings.local.json
+
+# Redação do TCC: temporários do Office e artefatos de compilação do LaTeX
+~$*
+*.tmp
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.lof
+*.lot
+*.out
+*.synctex.gz
+*.toc
+
+# Sistema operacional / editores
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/

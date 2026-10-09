@@ -1,0 +1,77 @@
+name: Pipeline ELT
+
+# Orquestração serverless (seção 4.2.8 da proposta): o GitHub Actions é
+# simultaneamente o motor de execução e o agendador temporal.
+on:
+  schedule:
+    # A origem republica as seis bases num lote só, **às segundas-feiras por
+    # volta das 02:30**: carimbos `data_atualizacao` medidos em 24/08/2026 e
+    # 14/09/2026, ambos segunda, 21 dias de intervalo (múltiplo de 7).
+    #
+    # Roda terça às 06:00 UTC, com folga sobre a atualização de segunda em
+    # qualquer fuso, e sempre com `--se-atualizado`: se o carimbo não mudou, o
+    # job encerra em ~6 s sem baixar uma linha.
+    - cron: "0 6 * * 2"
+  workflow_dispatch:
+    inputs:
+      dataset:
+        description: "Dataset específico (vazio = todos)"
+        required: false
+        type: string
+      forcar:
+        description: "Reingerir mesmo se a origem não mudou"
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: pipeline-elt
+  cancel-in-progress: false
+
+jobs:
+  elt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      PYTHONPATH: pipeline/src
+      CKAN_BASE_URL: https://dados.uffs.edu.br
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      R2_BUCKET: ${{ vars.R2_BUCKET || 'uffs-lakehouse' }}
+      R2_REGION: auto
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: pipeline/requirements.txt
+
+      - name: Instalar dependências
+        run: pip install -r pipeline/requirements.txt
+
+      # A guarda vale sempre — inclusive no disparo manual, para que reexecutar
+      # o workflow por engano não custe uma recarga inteira. `forcar` é a saída
+      # para quando se quer reprocessar mesmo sem novidade na origem (ex.: uma
+      # mudança de regra de negócio que exige reconstruir Silver e Gold).
+      # Em evento `schedule` o contexto `inputs` é vazio, então `!inputs.forcar`
+      # resolve para verdadeiro e a guarda entra.
+      - name: Pipeline completo
+        if: ${{ !inputs.dataset }}
+        run: python -m uffs_pipeline.cli completo ${{ !inputs.forcar && '--se-atualizado' || '' }}
+
+      # Disparo manual para um dataset específico: ingestão + Silver apenas.
+      # A Gold cruza todas as bases, então é reconstruída à parte.
+      - name: Ingestão e Silver de um dataset
+        if: ${{ inputs.dataset }}
+        run: |
+          python -m uffs_pipeline.cli ingestao --dataset ${{ inputs.dataset }}
+          python -m uffs_pipeline.cli bronze-para-silver --dataset ${{ inputs.dataset }}
+
+      - name: Silver -> Gold
+        if: ${{ inputs.dataset }}
+        run: python -m uffs_pipeline.cli silver-para-gold

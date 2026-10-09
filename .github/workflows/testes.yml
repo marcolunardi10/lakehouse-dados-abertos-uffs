@@ -1,0 +1,31 @@
+name: Testes
+
+# As regras de negócio educacionais são o núcleo metodológico do trabalho:
+# uma alteração descuidada em `regras.py` muda números que vão para a defesa.
+# Esta suíte é inteiramente offline — nenhuma chamada ao CKAN ou ao R2 —,
+# então roda em segundos e não consome cota de rede nem credenciais.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: pipeline/requirements-dev.txt
+
+      - name: Instalar dependências
+        run: pip install -r pipeline/requirements-dev.txt
+
+      - name: Rodar a suíte
+        working-directory: pipeline
+        run: python -m pytest

@@ -1,0 +1,5 @@
+polars==1.39.3
+requests==2.33.1
+boto3==1.42.79
+PyYAML==6.0.3
+python-dotenv==1.2.3

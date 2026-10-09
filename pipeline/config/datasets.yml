@@ -1,0 +1,212 @@
+# Catálogo das fontes CKAN consumidas pelo pipeline.
+# Editar aqui é a única forma de mudar o que é ingerido — nunca hardcode IDs no código.
+# Verificado em 2026-08-29. Reconferir com: python -m uffs_pipeline.cli catalogo
+#
+# `colunas` congela o esquema verificado e vira contrato: a ingestão aborta se
+# alguma delas sumir da origem, e avisa se aparecer coluna nova (secao 4.2.4 da
+# proposta). `chaves` sao as colunas criticas, que alem de existir nao podem ter
+# nulos — uma chave nula quebra juncao ou deduplicacao em silencio.
+#
+# A coluna `_full_text` NAO entra: e o indice de busca (tsvector) que o DataStore
+# do CKAN mantem internamente, nao faz parte de nenhum dicionario publicado e
+# respondia por 74% do tamanho da Bronze.
+
+campus_escopo: "Chapecó"
+
+datasets:
+  ingressantes:
+    titulo: "Estudantes Ingressantes da Graduação"
+    pacote: graduacao_estudantes_ingressantes
+    resource_id: bee823cd-7826-4dc6-95f7-dd13dfe609f3
+    dicionario_resource_id: 5ff2919d-ca1c-4bc0-bb71-6a1ffd1b9918
+    chaves: [_id]
+    colunas:
+      - _id
+      - tipo_discente
+      - raca
+      - genero
+      - ano_ingresso
+      - semestre_ingresso
+      - forma_ingresso
+      - modalidade_inscricao
+      - modalidade_vaga_ocupada
+      - sit_matricula
+      - nome_campus
+      - cod_uffs
+      - nome_curso
+      - turno
+      - matriz
+      - data_atualizacao
+    # A base tem nome_campus: o filtro de escopo vai direto no WHERE.
+    sql: |
+      SELECT *
+      FROM "bee823cd-7826-4dc6-95f7-dd13dfe609f3"
+      WHERE "nome_campus" = 'Chapecó'
+
+  turmas:
+    titulo: "Turmas da Graduação"
+    pacote: graduacao_turmas
+    resource_id: 670bc744-2570-4e2a-b73b-3acf2039a7c1
+    dicionario_resource_id: d05954c6-9af5-4641-bdc8-88d95949c760
+    chaves: [_id, ano, semestre, cod_ccr, id_unico_turma]
+    colunas:
+      - _id
+      - nome_campus
+      - ano
+      - semestre
+      - cod_ccr
+      - nome_ccr
+      - ch_ccr
+      - id_unico_turma
+      - id_relativo_turma
+      - quantidade_cursos
+      - cod_uffs_cursos_turma
+      - cursos_turma
+      - quantidade_docentes
+      - lista_docentes
+      - lista_ch_docentes
+      - vagas_turma
+      - qtd_inscritos
+      - qtd_passaram_pela_turma
+      - qtd_aprovados
+      - sit_turma
+      - data_atualizacao
+    sql: |
+      SELECT *
+      FROM "670bc744-2570-4e2a-b73b-3acf2039a7c1"
+      WHERE "nome_campus" = 'Chapecó'
+
+  # --------------------------------------------------------------------------
+  # Bases de estrutura curricular, acrescentadas em 29/08/2026 em resposta às
+  # considerações da banca (docs/registro-decisoes.md, D-12). Substituem o
+  # `graduacao_cursos` vazio e fornecem o prazo oficial de integralização.
+  # --------------------------------------------------------------------------
+  matrizes:
+    titulo: "Matrizes Curriculares da Graduação"
+    pacote: graduacao_matrizes
+    resource_id: 857e9283-5f9f-474a-b47b-5dd4f0f9710a
+    dicionario_resource_id: 6c4db24f-654f-40f1-ac86-d86a2b3d1ec8
+    chaves: [_id, id_matriz, cod_curso]
+    colunas:
+      - _id
+      - id_matriz
+      - campus
+      - cod_curso
+      - nome_curso
+      - turno
+      - grau_academico
+      - situacao
+      - enfase
+      - data_inicio_funcionamento
+      - data_atualizacao
+    # Dimensao oficial de curso: campus, codigo, nome, turno, grau, situacao.
+    # 63 linhas no total, 21 em Chapeco. A coluna de campus chama-se `campus`
+    # aqui, e nao `nome_campus` como nas demais bases.
+    sql: |
+      SELECT *
+      FROM "857e9283-5f9f-474a-b47b-5dd4f0f9710a"
+      WHERE "campus" = 'Chapecó'
+
+  estruturas:
+    titulo: "Estruturas Curriculares da Graduação"
+    pacote: estruturas_curriculares_graduacao
+    resource_id: ed0d3da3-d1d0-4b93-84cf-6975bbebca83
+    dicionario_resource_id: d73465b1-215b-4c44-917c-0eb26c19bc7a
+    chaves: [_id, id_matriz, ano_entrada_vigor, periodo_entrada_vigor]
+    colunas:
+      - _id
+      - id_curriculo
+      - id_matriz
+      - desc_matriz
+      - ano_entrada_vigor
+      - periodo_entrada_vigor
+      - em_andamento
+      - ch_obrigatoria
+      - ch_optativa
+      - ch_eletiva
+      - ch_accs
+      - ch_total
+      - ch_max_sem
+      - ch_min_sem
+      - ch_1o_nivel
+      - quant_semestres
+      - limite_semestres
+      - data_atualizacao
+    # Traz quant_semestres e limite_semestres — a base do indicador de retencao.
+    # Nao tem coluna de campus: o recorte vem do JOIN com matrizes por id_matriz.
+    # 160 linhas no total, 43 em Chapeco.
+    sql: |
+      SELECT e.*
+      FROM "ed0d3da3-d1d0-4b93-84cf-6975bbebca83" e
+      JOIN "857e9283-5f9f-474a-b47b-5dd4f0f9710a" m
+        ON e."id_matriz" = m."id_matriz"
+      WHERE m."campus" = 'Chapecó'
+
+  ccrs_matrizes:
+    titulo: "CCRs das Estruturas Curriculares da Graduação"
+    pacote: graduacao_ccrs_matrizes
+    resource_id: c51852e5-c5ae-4ce2-97d8-9261033b8877
+    dicionario_resource_id: 9f9ff9a9-f1a2-4aa7-bd92-46304607bcca
+    chaves: [_id, cod_ccr]
+    colunas:
+      - _id
+      - cod_ccr
+      - nome_ccr
+      - unid_responsavel
+      - n_curriculos
+      - ids_curriculos
+      - niveis_oferta
+      - n_cursos
+      - cod_cursos
+      - nome_cursos
+      - ch_total
+      - ch_pres_teorica
+      - ch_pres_pratica
+      - ch_pres_extens
+      - ch_dist_teorica
+      - ch_dist_pratica
+      - ch_dist_extens
+      - ch_pres_orient
+      - ch_pres_orient_ext
+      - ch_dist_orient
+      - ch_dist_orient_ext
+      - ch_orient_doc
+      - data_atualizacao
+    # Sem coluna de campus, e `cod_cursos` e uma lista separada por ';' — nao ha
+    # como filtrar o campus na origem. Sao 7.609 linhas para todos os campi,
+    # volume irrelevante; o recorte acontece na Gold, ao cruzar com as turmas.
+    sql: |
+      SELECT *
+      FROM "c51852e5-c5ae-4ce2-97d8-9261033b8877"
+
+  historico:
+    titulo: "Matriculados nas Turmas da Graduação"
+    pacote: graduacao_historico
+    resource_id: 3c31f55b-be46-4ddc-9cd5-f10f614f06bc
+    dicionario_resource_id: ceda2d3e-fa59-4f07-a6a0-27c05c26fac8
+    chaves: [_id, ano, semestre, cod_ccr, id_unico_turma]
+    colunas:
+      - _id
+      - ano
+      - semestre
+      - cod_curso
+      - cod_ccr
+      - id_unico_turma
+      - ch_t_p
+      - numero_faltas
+      - freq_aluno
+      - media_final
+      - sit_matricula
+      - data_atualizacao
+    # historico NAO tem nome_campus. O recorte de Chapecó exige JOIN com turmas
+    # na propria origem (o endpoint SQL do CKAN aceita JOIN entre recursos).
+    # Reduz de 1.293.405 para 431.012 linhas.
+    sql: |
+      SELECT h.*
+      FROM "3c31f55b-be46-4ddc-9cd5-f10f614f06bc" h
+      JOIN "670bc744-2570-4e2a-b73b-3acf2039a7c1" t
+        ON h."ano" = t."ano"
+       AND h."semestre" = t."semestre"
+       AND h."cod_ccr" = t."cod_ccr"
+       AND h."id_unico_turma"::int = t."id_unico_turma"
+      WHERE t."nome_campus" = 'Chapecó'

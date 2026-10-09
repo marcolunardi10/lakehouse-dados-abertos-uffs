@@ -1,0 +1,30 @@
+# Infraestrutura como código do Render. Fica na raiz do repositório, que é onde
+# o Render procura o arquivo; o serviço em si roda a partir de `api/` (rootDir).
+# Os segredos NÃO ficam aqui — são preenchidos no painel Environment (sync: false).
+services:
+  - type: web
+    name: uffs-indicadores-api
+    runtime: python
+    plan: free
+    region: oregon
+    rootDir: api
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.principal:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.13.0"
+      - key: R2_ENDPOINT
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET
+        value: uffs-lakehouse
+      - key: R2_REGION
+        value: auto
+      - key: API_KEY
+        sync: false
+      - key: API_CACHE_TTL_SEGUNDOS
+        value: "900"

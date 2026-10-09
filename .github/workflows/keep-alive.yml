@@ -1,0 +1,27 @@
+name: Keep-alive dos agendamentos
+
+# Mitigação do risco mapeado na seção 4.2.8 da proposta: o GitHub desativa
+# workflows agendados em repositórios sem commits por 60 dias, o que
+# interromperia o pipeline em silêncio após o fim do desenvolvimento ativo.
+on:
+  schedule:
+    - cron: "0 6 1,15 * *" # dias 1 e 15 de cada mês
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Registrar execução e commitar
+        run: |
+          echo "keep-alive $(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> .github/keep-alive.log
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/keep-alive.log
+          git commit -m "chore: keep-alive dos agendamentos cron"
+          git push
