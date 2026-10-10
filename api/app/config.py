@@ -23,6 +23,7 @@ class Config(BaseSettings):
     r2_region: str = "auto"
 
     api_key: str = ""
+    # Tempo de vida de cada mart em memória antes de ser recarregado do R2.
     api_cache_ttl_segundos: int = 900
 
     @property

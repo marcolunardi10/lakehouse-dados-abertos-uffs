@@ -7,6 +7,12 @@ Trabalho de Conclusão de Curso — Ciência da Computação, UFFS Chapecó.
 Autor: Marco Aurélio Lunardi · Orientadora: Profª Raquel Aparecida Pegoraro.
 Proposta defendida no TCC I: [`docs/TCC1_Marco_Aurelio_Lunardi.pdf`](docs/TCC1_Marco_Aurelio_Lunardi.pdf).
 
+**Painel no ar:** <https://lakehouse-dados-abertos-uffs.streamlit.app/>
+
+> A API roda em plano gratuito. Se o painel avisar que a camada de serviço não
+> respondeu, ela estava suspensa por inatividade: aguarde cerca de um minuto e
+> recarregue a página.
+
 ---
 
 ## Arquitetura
@@ -32,7 +38,7 @@ Polars, consulta analítica em DuckDB e painel desacoplado da regra de negócio
 | Caminho | Responsabilidade | Onde roda |
 |---|---|---|
 | `pipeline/` | Ingestão CKAN → Bronze → Silver → Gold (Polars, Parquet, R2) e testes das regras de negócio | GitHub Actions |
-| `api/` | Camada de serviço: DuckDB sobre Parquet no R2, exposto em rotas REST | Render |
+| `api/` | Camada de serviço: DuckDB sobre os marts da Gold, lidos do R2 e mantidos em memória, expostos em rotas REST | Render |
 | `dashboard/` | Painel gerencial (Streamlit + Plotly) | Streamlit Community Cloud |
 | `notebooks/` | Análise exploratória do TCC I (`eda_escopo/` = bases do escopo; `eda_fora_escopo/` = investigação preliminar de outros domínios) | — |
 | `docs/` | Proposta do TCC I e documentação técnica | — |

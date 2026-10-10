@@ -49,7 +49,7 @@ def buscar(rota: str, **parametros: Any) -> pl.DataFrame:
     DataFrames Polars nativamente (via Narwhals) e o Streamlit também, então o
     painel não precisa de uma segunda biblioteca de dados só para apresentar.
 
-    O TTL de 15 min espelha o cache da API: os dados só mudam quando o pipeline
+    O TTL de 15 min espelha o da API (D-30): os dados só mudam quando o pipeline
     roda, então recarregar com mais frequência só gera latência.
     """
     limpos = {k: v for k, v in parametros.items() if v is not None}

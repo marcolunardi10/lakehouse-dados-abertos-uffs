@@ -68,22 +68,18 @@ async def gargalos(
         SELECT
             {projecao},
             count(DISTINCT cod_ccr) AS n_codigos,
-            string_agg(DISTINCT cod_ccr, ', ') AS codigos,
+            string_agg(DISTINCT cod_ccr, ', ' ORDER BY cod_ccr) AS codigos,
             sum(qtd_matriculas) AS total_matriculas,
             {reprovados} AS reprovados,
             round(100.0 * {reprovados} / nullif(sum(qtd_matriculas), 0), 2) AS taxa_reprovacao
-        FROM read_parquet('{deposito.mart_uri("visao3_desempenho")}')
+        FROM {deposito.tabela("visao3_desempenho")}
         {where}
         GROUP BY {projecao}
         HAVING sum(qtd_matriculas) >= ?
         ORDER BY taxa_reprovacao DESC, total_matriculas DESC
         LIMIT ?
     """
-    return deposito.consultar(
-        sql,
-        [*parametros, minimo_matriculas, limite],
-        f"{filtros.chave_cache('desempenho.gargalos')}:{agrupamento}:{minimo_matriculas}:{limite}",
-    )
+    return deposito.consultar(sql, [*parametros, minimo_matriculas, limite])
 
 
 @roteador.get("/perfil-reprovacao", summary="Análise 9 — reprovação por nota vs. por frequência")
@@ -94,12 +90,12 @@ async def perfil_reprovacao(
     where, parametros = filtros.clausula(*COLUNAS)
     sql = f"""
         SELECT resultado, sum(qtd_matriculas) AS qtd
-        FROM read_parquet('{deposito.mart_uri("visao3_desempenho")}')
+        FROM {deposito.tabela("visao3_desempenho")}
         {where}
         GROUP BY resultado
         ORDER BY qtd DESC
     """
-    return deposito.consultar(sql, parametros, filtros.chave_cache("desempenho.perfil"))
+    return deposito.consultar(sql, parametros)
 
 
 @roteador.get("/frequencia-media", summary="Análise 8 — correlação entre frequência e média final")
@@ -127,9 +123,9 @@ async def frequencia_media(
             round(
                 sum(media_final_media * qtd_matriculas) / nullif(sum(qtd_matriculas), 0), 2
             ) AS media_final_ponderada
-        FROM read_parquet('{deposito.mart_uri("visao3_frequencia_media")}')
+        FROM {deposito.tabela("visao3_frequencia_media")}
         {where}
         GROUP BY faixa_freq
         ORDER BY faixa_freq
     """
-    return deposito.consultar(sql, [nome_ccr] if nome_ccr else [], f"desempenho.freq:{nome_ccr}")
+    return deposito.consultar(sql, [nome_ccr] if nome_ccr else [])

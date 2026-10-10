@@ -48,8 +48,7 @@ Concentra tipagem, normalização de categóricas e deduplicação. Os conjuntos
 volumosos são particionados por `ano`.
 
 **Gold** contém tabelas pequenas e amplamente agregadas — **387 KB somando os
-seis marts** —, o que viabiliza o aquecimento integral do cache da API na
-inicialização.
+seis marts** —, pequenas o bastante para caberem inteiras na memória da API.
 
 Dimensões medidas em 19/09/2026: Bronze **2,03 MB** por carga, Silver 3,79 MB,
 Gold 0,38 MB. O pipeline completo roda em **71 segundos** no *runner* gratuito
@@ -72,8 +71,10 @@ dois a três minutos numa máquina local.
    deduplicação **apenas pela chave técnica `_id`** (D-03).
 4. **Silver → Gold.** As regras de negócio, concentradas em `regras.py`,
    produzem um data mart por visão do painel (D-04).
-5. **API.** O DuckDB consulta a Gold no R2 via `httpfs`. Os marts são aquecidos
-   na inicialização e as respostas ficam em cache em memória com TTL.
+5. **API.** Na inicialização, o DuckDB lê os seis marts da Gold no R2 via
+   `httpfs` e os copia para tabelas em memória. Toda consulta roda sobre essas
+   tabelas, sem rede, em poucos milissegundos. Cada tabela é recarregada do R2
+   quando passa de 15 minutos de idade (D-30).
 6. **Painel.** Consome apenas a API; nenhuma regra de negócio vive nele.
 7. **UptimeRobot** faz *ping* em `/health` a cada 5 minutos, evitando a
    suspensão por inatividade do plano gratuito do Render.
@@ -104,11 +105,26 @@ volume cresça, por exemplo com a extensão a todos os *campi*.
 
 ### DuckDB na API em vez de um banco provisionado
 
-O DuckDB roda embarcado no processo da FastAPI e consulta Parquet remoto
-diretamente via `httpfs`. Isso elimina o custo e a manutenção de um servidor de
-banco ativo em tempo integral — o requisito de sustentabilidade financeira da
-seção 1.3 da proposta. As respostas são montadas sem pyarrow, para poupar
-memória no plano gratuito do Render (D-18).
+O DuckDB roda embarcado no processo da FastAPI e lê Parquet remoto diretamente
+via `httpfs`. Isso elimina o custo e a manutenção de um servidor de banco ativo
+em tempo integral — o requisito de sustentabilidade financeira da seção 1.3 da
+proposta. As respostas são montadas sem pyarrow, para poupar memória no plano
+gratuito do Render (D-18).
+
+### Marts em memória, em vez de consulta ao Parquet a cada requisição
+
+A proposta previa o DuckDB consultando o Parquet no R2 a cada requisição, com
+*data skipping*. Medido, isso custava de 0,35 a 1 s por consulta ainda não
+vista, e o painel dispara cerca de dez por troca de filtro. Como os marts somam
+387 KB, a API passou a carregá-los inteiros na memória ao iniciar e a
+recarregá-los a cada 15 minutos: o mesmo conjunto de 47 chamadas caiu de 23,0 s
+para 1,1 s, com respostas idênticas (D-30).
+
+A escolha depende de a Gold ser pequena. Se os marts crescessem a ponto de não
+caber com folga na memória do serviço, a consulta direta ao Parquet voltaria a
+ser o desenho adequado.
+
+Se o R2 falhar na hora de recarregar, a API continua servindo a última cópia.
 
 ### Cliente CKAN tolerante a quedas de conexão
 

@@ -35,9 +35,6 @@ class Filtros:
 
         return ("WHERE " + " AND ".join(condicoes) if condicoes else ""), parametros
 
-    def chave_cache(self, prefixo: str) -> str:
-        return f"{prefixo}:{self.curso}:{self.ano_inicio}:{self.ano_fim}:{self.semestre}"
-
 
 async def obter_filtros(
     curso: str | None = Query(default=None, description="Nome do curso; omitir para todos"),

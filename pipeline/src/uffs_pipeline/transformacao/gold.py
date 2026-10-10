@@ -1,7 +1,7 @@
 """Camada Gold: data marts por visão do painel.
 
 Cada função `mart_*` produz uma tabela pequena e amplamente agregada, pensada
-para ser lida inteira pelo DuckDB da API e mantida em cache. A filtragem por
+para ser lida inteira pelo DuckDB da API e mantida em memória. A filtragem por
 curso e recorte temporal acontece na API, sobre estes marts — não aqui.
 
 Mapeamento visão -> mart -> análises está em docs/indicadores.md.

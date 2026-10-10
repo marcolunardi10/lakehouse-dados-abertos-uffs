@@ -26,9 +26,7 @@ roteador = APIRouter(prefix="/v1/fluxo", tags=["Visão 2 — fluxo acadêmico"])
 COLUNAS = ("nome_curso", "ano_ingresso", "semestre_ingresso")
 
 
-def _taxa_por(
-    deposito: Deposito, filtros: Filtros, dimensoes: list[str], nome_cache: str
-) -> list[dict[str, Any]]:
+def _taxa_por(deposito: Deposito, filtros: Filtros, dimensoes: list[str]) -> list[dict[str, Any]]:
     where, parametros = filtros.clausula(*COLUNAS)
     projecao = ", ".join(dimensoes)
     sql = f"""
@@ -42,12 +40,12 @@ def _taxa_por(
                 100.0 * sum(CASE WHEN situacao_vinculo = 'EVADIDO' THEN qtd_estudantes ELSE 0 END)
                 / nullif(sum(qtd_estudantes), 0), 2
             ) AS taxa_evasao
-        FROM read_parquet('{deposito.mart_uri("visao2_fluxo")}')
+        FROM {deposito.tabela("visao2_fluxo")}
         {where}
         GROUP BY {projecao}
         ORDER BY {projecao}
     """
-    return deposito.consultar(sql, parametros, filtros.chave_cache(nome_cache))
+    return deposito.consultar(sql, parametros)
 
 
 @roteador.get("/evasao-curso", summary="Análise 4 — taxa de evasão por curso")
@@ -55,7 +53,7 @@ async def evasao_curso(
     filtros: Filtros = Depends(obter_filtros),
     deposito: Deposito = Depends(obter_deposito),
 ) -> list[dict[str, Any]]:
-    return _taxa_por(deposito, filtros, ["nome_curso"], "fluxo.evasao_curso")
+    return _taxa_por(deposito, filtros, ["nome_curso"])
 
 
 @roteador.get("/evasao-cota", summary="Análise 5 — evasão comparada por modalidade de ingresso")
@@ -63,7 +61,7 @@ async def evasao_cota(
     filtros: Filtros = Depends(obter_filtros),
     deposito: Deposito = Depends(obter_deposito),
 ) -> list[dict[str, Any]]:
-    return _taxa_por(deposito, filtros, ["modalidade_inscricao"], "fluxo.evasao_cota")
+    return _taxa_por(deposito, filtros, ["modalidade_inscricao"])
 
 
 @roteador.get("/curva-evasao", summary="Análise 6 — evasão por coorte de ingresso")
@@ -78,7 +76,7 @@ async def curva_evasao(
     recentes têm muitos vínculos ainda ativos e taxa artificialmente menor — o
     painel precisa sinalizar isso.
     """
-    return _taxa_por(deposito, filtros, ["ano_ingresso"], "fluxo.curva_evasao")
+    return _taxa_por(deposito, filtros, ["ano_ingresso"])
 
 
 @roteador.get(
@@ -96,7 +94,7 @@ async def evasao_reentrada(
     afirmar que a evasão institucional é estritamente menor que a de curso,
     ainda que não seja calculável (D-10).
     """
-    return _taxa_por(deposito, filtros, ["e_reentrada"], "fluxo.evasao_reentrada")
+    return _taxa_por(deposito, filtros, ["e_reentrada"])
 
 
 @roteador.get("/retencao", summary="Análise 10 — retenção frente ao prazo de integralização")
@@ -128,10 +126,10 @@ async def retencao(
                 100.0 * sum(CASE WHEN progressao IN {atrasados} THEN qtd_estudantes ELSE 0 END)
                 / nullif(sum(CASE WHEN progressao IN {ativos} THEN qtd_estudantes ELSE 0 END), 0), 2
             ) AS taxa_atraso
-        FROM read_parquet('{deposito.mart_uri("visao2_retencao")}')
+        FROM {deposito.tabela("visao2_retencao")}
         {where}
         GROUP BY nome_curso
         HAVING sum(qtd_estudantes) > 0
         ORDER BY taxa_atraso DESC NULLS LAST
     """
-    return deposito.consultar(sql, parametros, filtros.chave_cache("fluxo.retencao"))
+    return deposito.consultar(sql, parametros)

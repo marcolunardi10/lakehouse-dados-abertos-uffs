@@ -508,6 +508,68 @@ apenas GET.
 proposta — manter o serviço acordado e avisar em caso de falha. Um alarme falso
 permanente anularia a segunda.
 
+## D-30 · Os marts da Gold ficam em memória na API
+
+**10/10/2026** · `api/app/deposito.py` e as rotas em `api/app/rotas/`
+
+Na inicialização, a API copia os seis marts do R2 para tabelas em memória do
+DuckDB, e todas as consultas das rotas passam a rodar sobre essas tabelas. Cada
+tabela é recarregada do R2 quando passa de 15 minutos de idade, no momento em
+que é consultada. O cache de respostas por combinação de filtros foi removido.
+
+**Motivo:** A-29. O desenho anterior consultava o Parquet no R2 a cada
+requisição ainda não vista, e o painel dispara cerca de dez requisições por
+troca de filtro. Como as combinações de curso, intervalo de anos e semestre são
+milhares, o cache de respostas quase nunca acertava para quem explora os dados —
+que é o uso principal de um painel gerencial.
+
+**Evidência**, medida localmente contra o R2, com as mesmas 47 chamadas cobrindo
+todas as rotas e quatro combinações de filtro:
+
+| | Antes | Depois |
+|---|---:|---:|
+| Tempo total das 47 chamadas | 23,0 s | 1,1 s |
+| Mediana por chamada | 361 ms | 15 ms |
+| Chamada mais lenta | 1.642 ms | 294 ms |
+| Rota com filtro nunca visto | 350 a 1.020 ms | 5 a 27 ms |
+
+O tempo de inicialização não mudou de ordem de grandeza: cerca de 6,5 s para
+carregar os seis marts, contra a leitura de conferência que já existia.
+
+**Desvio em relação à proposta, declarado.** A seção 4.2.6 descreve o DuckDB
+executando consultas "diretamente sobre os arquivos Parquet armazenados no
+Cloudflare R2", lendo pela rede apenas os blocos necessários (*data skipping*).
+O DuckDB continua lendo Parquet do R2 via `httpfs`, mas uma vez a cada 15
+minutos por mart, e não a cada consulta. A mudança cumpre melhor duas promessas
+da mesma seção — o *cache warming* como "aquecimento prévio da memória RAM no
+momento da inicialização" e a latência "na casa dos milissegundos" — e abre mão
+do *data skipping* por consulta. A justificativa é o tamanho: os marts somam 387
+KB, e num arquivo desse porte não há bloco a pular; ele vem inteiro de qualquer
+forma. Amparo na cláusula 4.3.4.
+
+**Condição da escolha:** vale enquanto a Gold couber com folga na memória do
+serviço (512 MB no plano gratuito do Render). Estendida aos seis *campi* ela
+triplicaria e continuaria cabendo. Se os marts chegassem a centenas de
+megabytes, a consulta direta ao Parquet voltaria a ser o desenho certo.
+
+**Efeitos além da latência:**
+
+- *resiliência*: se o R2 ficar inacessível na hora da recarga, a API segue
+  servindo a cópia anterior e tenta de novo após 60 s. Antes, toda consulta
+  ainda não vista falhava;
+- *memória previsível*: o cache de respostas nunca apagava entradas vencidas,
+  só as substituía quando a mesma combinação era pedida de novo, e portanto só
+  crescia. Com os dados em memória ele deixou de ser necessário;
+- *atualização dos dados*: inalterada — até 15 minutos de atraso depois de uma
+  carga nova, como antes.
+
+**Verificação:** as respostas das 47 chamadas foram capturadas antes e depois da
+mudança e comparadas: **47 de 47 idênticas em conteúdo**, 1.490 linhas. Dez
+diferem apenas na ordem de linhas empatadas ou na ordem dos códigos reunidos,
+que passou a ser alfabética. Testados à parte: a recarga após o prazo, a
+permanência da cópia antiga quando o R2 falha, o erro explícito quando não há
+cópia nenhuma, e a recusa de nome de tabela fora da lista fechada.
+
 ---
 
 # Achados
@@ -542,6 +604,7 @@ permanente anularia a segunda.
 | **A-26** | As duas colunas de carga horária estão em **unidades diferentes**: `historico.ch_t_p` em horas-aula, `turmas.ch_ccr` em horas | razão exata de 1,2 em 99,97% das matrículas (72 × 60, 54 × 45). Coerente com o art. 111 da Resolução nº 40/CGAE/CONSUNI/2022, que registra a presença por hora-aula | Desenvolvimento |
 | **A-27** | **Causa das frequências negativas (A-22): as faltas são contadas sobre as aulas registradas, e o denominador é a carga nominal.** Não é diferença de unidade | 752 dos 825 casos (91%) são do estudante com mais faltas da turma; em 89% o excesso é de até 20%, tipicamente 1 a 4 horas-aula. 60 casos extremos em 20 turmas. Pico de 1,26% das matrículas em 2011, praticamente zero desde 2023 | Resultados (qualidade dos dados abertos) |
 | **A-28** | **No runner gratuito do GitHub Actions o pipeline completo leva 71 s** — menos da metade do tempo medido localmente | execução de 10/10/2026, carga forçada das seis bases: 71 s no passo do pipeline, 87 s no job inteiro (4 s para instalar dependências). Localmente, 140 a 170 s. Suíte de testes: 21 s no job. Keep-alive: 9 s | Resultados (o artefato) |
+| **A-29** | **O cache de respostas da API reduzia a latência de centenas de milissegundos para 2 ms — mas o aquecimento na inicialização não o preenchia.** Diagnóstico que levou a D-30 | medido localmente em 10/10/2026: consulta ainda não vista leva 350 a 1.020 ms (ida ao R2); a mesma consulta repetida, 2 ms, igual à rota `/health`, que não toca o R2. Cada combinação nova de filtros paga a ida ao R2 uma vez. O aquecimento só abre a conexão e confere os marts: a primeira consulta após o boot ainda levou 351 ms | Resultados (o artefato) |
 
 > **A-18 e A-19 ainda são hipóteses.** Precisam de quebra por curso e de
 > validação com as coordenações antes de virarem afirmação.
