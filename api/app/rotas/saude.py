@@ -13,6 +13,8 @@ from ..deposito import Deposito, obter_deposito
 roteador = APIRouter(tags=["operação"])
 
 
-@roteador.get("/health", summary="Verificação de saúde")
+# HEAD além de GET: o UptimeRobot consulta com HEAD por padrão, e uma rota só
+# de GET responde 405 — o monitor acusa queda com a API saudável.
+@roteador.api_route("/health", methods=["GET", "HEAD"], summary="Verificação de saúde")
 async def health(deposito: Deposito = Depends(obter_deposito)) -> dict[str, str]:
     return {"status": "ok" if deposito.saudavel() else "degradado"}

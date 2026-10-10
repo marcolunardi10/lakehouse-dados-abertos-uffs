@@ -52,7 +52,9 @@ seis marts** —, o que viabiliza o aquecimento integral do cache da API na
 inicialização.
 
 Dimensões medidas em 19/09/2026: Bronze **2,03 MB** por carga, Silver 3,79 MB,
-Gold 0,38 MB. O pipeline completo roda em cerca de três minutos.
+Gold 0,38 MB. O pipeline completo roda em **71 segundos** no *runner* gratuito
+do GitHub Actions (medido em 10/10/2026; o job inteiro leva 87 s) e em cerca de
+dois a três minutos numa máquina local.
 
 ## Fluxo de execução
 

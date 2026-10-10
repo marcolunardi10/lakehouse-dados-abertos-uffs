@@ -471,6 +471,43 @@ deles, exibidos no *tooltip* e na tabela — a união nunca é opaca.
 **Consequência:** a Análise 8 passou a filtrar por nome do componente, para
 ficar no mesmo grão.
 
+## D-28 · A série temporal dos retratos é indexada pelo carimbo da origem
+
+**10/10/2026**
+
+Ao reconstruir a evolução de `sit_matricula` a partir das partições da Bronze
+(L-03), a chave de cada retrato é o **`data_atualizacao` da origem**, não a data
+da carga. Duas cargas da mesma publicação contam como um retrato só.
+
+**Motivo:** a data da carga registra quando o pipeline rodou, não quando o dado
+mudou. Uma execução forçada, ou repetida depois de uma falha, grava uma partição
+nova com conteúdo idêntico ao da anterior; indexar por data de carga criaria
+pontos repetidos na série e intervalos irregulares que não existem na fonte.
+
+**Evidência:** em 10/10/2026 a Bronze tinha quatro cargas (29/08, 19/09, 08/10 e
+10/10) para apenas **três publicações** da origem (24/08, 14/09 e 05/10). As
+cargas de 08/10 e 10/10 trazem o mesmo carimbo.
+
+**Consequência:** partições repetidas não precisam ser apagadas, o que preserva
+a Bronze como camada apenas de acréscimo (D-01).
+
+## D-29 · A rota de saúde aceita HEAD além de GET
+
+**10/10/2026** · `api/app/rotas/saude.py`
+
+**Motivo:** o UptimeRobot consulta com HEAD por padrão. Com a rota restrita a
+GET, a API respondia `405 Method Not Allowed` e o monitor acusava queda — com
+alerta por e-mail — enquanto o serviço estava saudável.
+
+**Evidência:** primeiro ciclo do monitor em 10/10/2026, com o 405 confirmado por
+quatro pontos de verificação. No mesmo instante, um GET na mesma rota devolvia
+200. Após a correção, HEAD devolve 200; as rotas de dados continuam aceitando
+apenas GET.
+
+**Por que importa:** o monitor cumpre duas funções previstas na seção 4.2.8 da
+proposta — manter o serviço acordado e avisar em caso de falha. Um alarme falso
+permanente anularia a segunda.
+
 ---
 
 # Achados
@@ -504,6 +541,7 @@ ficar no mesmo grão.
 | **A-25** | Uma turma compartilhada **conta a mesma matrícula uma vez por curso** atendido | fator 1,03 no campus (429.622 contra 418.740 reais); só 225 de 14.288 turmas atendem mais de um curso | Limitações (L-11) |
 | **A-26** | As duas colunas de carga horária estão em **unidades diferentes**: `historico.ch_t_p` em horas-aula, `turmas.ch_ccr` em horas | razão exata de 1,2 em 99,97% das matrículas (72 × 60, 54 × 45). Coerente com o art. 111 da Resolução nº 40/CGAE/CONSUNI/2022, que registra a presença por hora-aula | Desenvolvimento |
 | **A-27** | **Causa das frequências negativas (A-22): as faltas são contadas sobre as aulas registradas, e o denominador é a carga nominal.** Não é diferença de unidade | 752 dos 825 casos (91%) são do estudante com mais faltas da turma; em 89% o excesso é de até 20%, tipicamente 1 a 4 horas-aula. 60 casos extremos em 20 turmas. Pico de 1,26% das matrículas em 2011, praticamente zero desde 2023 | Resultados (qualidade dos dados abertos) |
+| **A-28** | **No runner gratuito do GitHub Actions o pipeline completo leva 71 s** — menos da metade do tempo medido localmente | execução de 10/10/2026, carga forçada das seis bases: 71 s no passo do pipeline, 87 s no job inteiro (4 s para instalar dependências). Localmente, 140 a 170 s. Suíte de testes: 21 s no job. Keep-alive: 9 s | Resultados (o artefato) |
 
 > **A-18 e A-19 ainda são hipóteses.** Precisam de quebra por curso e de
 > validação com as coordenações antes de virarem afirmação.
