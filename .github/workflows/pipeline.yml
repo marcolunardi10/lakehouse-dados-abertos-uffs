@@ -60,9 +60,41 @@ jobs:
       # mudança de regra de negócio que exige reconstruir Silver e Gold).
       # Em evento `schedule` o contexto `inputs` é vazio, então `!inputs.forcar`
       # resolve para verdadeiro e a guarda entra.
+      #
+      # O `time -v` do GNU mede o pico de memória residente do processo, que os
+      # metadados da execução não informam. Ele devolve o código de saída do
+      # pipeline, então uma falha continua derrubando o job.
       - name: Pipeline completo
         if: ${{ !inputs.dataset }}
-        run: python -m uffs_pipeline.cli completo ${{ !inputs.forcar && '--se-atualizado' || '' }}
+        run: |
+          [ -x /usr/bin/time ] || sudo apt-get install -y -qq time
+          /usr/bin/time -v -o "$RUNNER_TEMP/medicao.txt" \
+            python -m uffs_pipeline.cli completo ${{ !inputs.forcar && '--se-atualizado' || '' }}
+
+      # Publica a medição no resumo da execução, inclusive quando o pipeline
+      # falha — estourar a memória é justamente um dos casos de interesse.
+      - name: Resumo de tempo e memória
+        if: ${{ always() && !inputs.dataset }}
+        run: |
+          arquivo="$RUNNER_TEMP/medicao.txt"
+          if [ ! -s "$arquivo" ]; then
+            echo "Sem medição: o pipeline não chegou a rodar." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          pico_kb=$(awk -F': ' '/Maximum resident set size/ {print $2}' "$arquivo")
+          decorrido=$(awk -F': ' '/Elapsed \(wall clock\)/ {print $2}' "$arquivo")
+          total_kb=$(awk '/MemTotal/ {print $2}' /proc/meminfo)
+          {
+            echo "### Tempo e memória do pipeline"
+            echo
+            echo "| Medida | Valor |"
+            echo "|---|---:|"
+            echo "| Tempo decorrido | $decorrido |"
+            echo "| Pico de memória residente | $((pico_kb / 1024)) MB |"
+            echo "| Memória total do runner | $((total_kb / 1024)) MB |"
+            echo "| Núcleos do runner | $(nproc) |"
+            echo "| Carga forçada | ${{ inputs.forcar || false }} |"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
 
       # Disparo manual para um dataset específico: ingestão + Silver apenas.
       # A Gold cruza todas as bases, então é reconstruída à parte.

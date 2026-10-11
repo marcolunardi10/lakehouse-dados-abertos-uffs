@@ -28,6 +28,16 @@ PROGRESSAO = {
 }
 
 
+# Grupos de `/v1/fluxo/evasao-reentrada?por_forma=true`, na ordem de exibição.
+# Só rótulo de apresentação: quem decide o que é reentrada é o pipeline.
+GRUPOS_REENTRADA = {
+    "PRIMEIRO INGRESSO": "Primeiro ingresso",
+    "TRANSFERÊNCIA INTERNA": "Transferência interna",
+    "RETORNO DE ALUNO-ABANDONO": "Retorno após abandono",
+    "RETORNO DE GRADUADO": "Retorno de graduado",
+}
+
+
 def _formatar(valor: float) -> str:
     return f"{valor:,.0f}".replace(",", ".")
 
@@ -92,7 +102,7 @@ def _analise_4(parametros: dict, cores: tema.Cores) -> None:
         cliponaxis=False,
     )
     tema.separar_barras(figura, arredondar=True)
-    tema.aplicar(figura, altura=460)
+    tema.aplicar(figura, altura=460, rotulos_externos=True)
     figura.update_xaxes(range=[0, max(100, ordenado["taxa_evasao"].max() * 1.15)])
     st.plotly_chart(figura, width="stretch")
 
@@ -100,20 +110,11 @@ def _analise_4(parametros: dict, cores: tema.Cores) -> None:
 # ------------------------------------------------------------------- Reentradas
 def _reentrada(parametros: dict) -> None:
     st.markdown("#### Evasão de curso não é evasão da universidade")
-    dados = buscar("/v1/fluxo/evasao-reentrada", **parametros)
+    dados = buscar("/v1/fluxo/evasao-reentrada", por_forma=True, **parametros)
     if dados.is_empty():
         return
 
-    dados = dados.with_columns(
-        pl.when(pl.col("e_reentrada"))
-        .then(pl.lit("Reentrada na UFFS"))
-        .otherwise(pl.lit("Primeiro ingresso"))
-        .alias("grupo")
-    ).sort("e_reentrada")
-
-    reentradas = int(
-        dados.filter(pl.col("e_reentrada"))["total_ingressantes"].sum()
-    )
+    reentradas = int(dados.filter(pl.col("e_reentrada"))["total_ingressantes"].sum())
     total = int(dados["total_ingressantes"].sum())
 
     st.caption(
@@ -124,27 +125,72 @@ def _reentrada(parametros: dict) -> None:
         "curso, mas não é calculável: as bases não expõem identificador de estudante."
     )
 
+    # Enquanto a API ainda não tiver a quebra (janela entre as duas
+    # implantações), a rota devolve só os dois grupos somados.
+    if "grupo" not in dados.columns:
+        dados = dados.with_columns(
+            pl.when(pl.col("e_reentrada"))
+            .then(pl.lit("Reentrada na UFFS"))
+            .otherwise(pl.lit("PRIMEIRO INGRESSO"))
+            .alias("grupo")
+        )
+
+    # A ordem dos grupos é fixa, e não por taxa, para que o gráfico não se
+    # reorganize a cada troca de filtro.
+    ordem = list(GRUPOS_REENTRADA)
+    dados = dados.with_columns(
+        pl.col("grupo")
+        .replace_strict(
+            {g: i for i, g in enumerate(ordem)}, default=len(ordem), return_dtype=pl.Int32
+        )
+        .alias("ordem"),
+        pl.when(pl.col("e_reentrada"))
+        .then(pl.lit("Reentrada na UFFS"))
+        .otherwise(pl.lit("Primeiro ingresso"))
+        .alias("tipo"),
+    ).sort("ordem")
+    # O tamanho do grupo vai no próprio rótulo: com filtro de curso, uma forma
+    # de reentrada pode ter poucas dezenas de vínculos.
+    dados = dados.with_columns(
+        pl.Series(
+            "rotulo",
+            [
+                f"{GRUPOS_REENTRADA.get(grupo, grupo)}<br>{_formatar(n)} vínculos"
+                for grupo, n in zip(dados["grupo"], dados["total_ingressantes"])
+            ],
+        )
+    )
+
     figura = px.bar(
         dados,
-        x="grupo",
+        x="rotulo",
         y="taxa_evasao",
-        color="grupo",
+        color="tipo",
         # `colorway` do layout não vale aqui: o px já fixa a cor de cada traço
         # quando se usa `color=`. A sequência precisa ser passada na criação.
         color_discrete_sequence=tema.cores().categorica,
-        labels={"taxa_evasao": "Taxa de evasão de curso (%)", "grupo": ""},
-        hover_data=["total_ingressantes", "evadidos", "ativos"],
+        category_orders={
+            "rotulo": dados["rotulo"].to_list(),
+            "tipo": ["Primeiro ingresso", "Reentrada na UFFS"],
+        },
+        labels={"taxa_evasao": "Taxa de evasão de curso (%)", "rotulo": "", "tipo": ""},
+        hover_data=["total_ingressantes", "evadidos", "concluidos", "ativos"],
         text="taxa_evasao",
     )
     figura.update_traces(
         texttemplate="%{text:.1f}%", textposition="outside", cliponaxis=False
     )
     tema.separar_barras(figura, arredondar=True)
-    tema.aplicar(figura, altura=320)
-    # Duas categorias ocupando a largura toda viram blocos enormes.
-    figura.update_layout(showlegend=False, bargap=0.6)
+    tema.aplicar(figura, altura=360)
+    figura.update_layout(bargap=0.45)
     figura.update_yaxes(rangemode="tozero")
     st.plotly_chart(figura, width="stretch")
+
+    st.caption(
+        "As reentradas não se comportam como um grupo só: compare cada forma com o "
+        "primeiro ingresso, em vez de somá-las. Os dados descrevem a diferença, não a "
+        "explicam — não se sabe o que ocorreu no vínculo anterior."
+    )
 
 
 # --------------------------------------------------------------------- Análise 5
@@ -189,7 +235,7 @@ def _analise_5(parametros: dict) -> None:
         cliponaxis=False,
     )
     tema.separar_barras(figura, arredondar=True)
-    tema.aplicar(figura, altura=max(320, 28 * visivel.height + 120))
+    tema.aplicar(figura, altura=max(320, 28 * visivel.height + 120), rotulos_externos=True)
     st.plotly_chart(figura, width="stretch")
 
     if ocultas:

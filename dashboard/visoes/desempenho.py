@@ -111,7 +111,9 @@ def _analise_7(parametros: dict) -> pl.DataFrame:
         cliponaxis=False,
     )
     tema.separar_barras(figura, arredondar=True)
-    tema.aplicar(figura, altura=max(360, 30 * ordenado.height + 140))
+    tema.aplicar(
+        figura, altura=max(360, 30 * ordenado.height + 140), rotulos_externos=True
+    )
     st.plotly_chart(figura, width="stretch")
 
     st.caption(
@@ -287,7 +289,7 @@ def _analise_9(parametros: dict) -> None:
         texttemplate="%{text:.1f}%", textposition="outside", cliponaxis=False
     )
     tema.separar_barras(figura, arredondar=True)
-    tema.aplicar(figura, altura=340)
+    tema.aplicar(figura, altura=340, rotulos_externos=True)
     figura.update_layout(showlegend=False)
     st.plotly_chart(figura, width="stretch")
 

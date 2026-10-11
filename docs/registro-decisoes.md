@@ -536,6 +536,19 @@ todas as rotas e quatro combinações de filtro:
 O tempo de inicialização não mudou de ordem de grandeza: cerca de 6,5 s para
 carregar os seis marts, contra a leitura de conferência que já existia.
 
+**Em produção** (Render, plano gratuito, implantação de 10/10/2026): os seis
+marts — 74.181 linhas — entraram em memória em **3,1 s**, entre 377 e 684 ms
+cada, metade do tempo medido localmente. O serviço respondeu a `/health` durante
+a carga.
+
+Medidas de fora, numa única conexão reaproveitada, cinco rotas com combinações
+de filtro nunca pedidas antes responderam em **224 a 289 ms de ponta a ponta**,
+contra 215 ms de `/health`, que não consulta dado algum. A diferença — de 9 a
+75 ms — é o teto do tempo de consulta no Render, e está dentro do ruído da
+rede: na mesma sequência, uma chamada a `/health` levou 685 ms. No desenho
+anterior, cada uma dessas rotas somaria de 350 a 1.020 ms ao tempo de rede.
+Amostra única, de uma máquina em Chapecó; o tempo de rede domina o total.
+
 **Desvio em relação à proposta, declarado.** A seção 4.2.6 descreve o DuckDB
 executando consultas "diretamente sobre os arquivos Parquet armazenados no
 Cloudflare R2", lendo pela rede apenas os blocos necessários (*data skipping*).
@@ -570,6 +583,78 @@ que passou a ser alfabética. Testados à parte: a recarga após o prazo, a
 permanência da cópia antiga quando o R2 falha, o erro explícito quando não há
 cópia nenhuma, e a recusa de nome de tabela fora da lista fechada.
 
+## D-31 · Margem fixa para o rótulo de valor nas barras horizontais
+
+**10/10/2026** · `dashboard/componentes/tema.py` (`aplicar(..., rotulos_externos=True)`)
+
+Os quatro gráficos de barras horizontais que escrevem o valor depois da barra
+— Análises 4, 5, 7 e 9 — passam a reservar 56 px de margem à direita.
+
+**Motivo:** o rótulo da barra mais longa dependia da folga do eixo, que é
+proporcional à largura do gráfico. Em janela estreita a folga encolhe e o
+texto, que tem largura fixa, era cortado na borda.
+
+**Evidência**, medida num Chrome sem janela contra o painel local, pelo quanto
+o texto passa da borda direita do gráfico (positivo = cortado):
+
+| Largura da janela | Antes | Depois |
+|---|---:|---:|
+| 800 px | até +19 px, em 3 gráficos | −27 px ou menos |
+| 1.100 px | até +10 px, em 3 gráficos | −35 px ou menos |
+| 1.400 px | −5 px (cabia por pouco) | −46 px ou menos |
+| 1.920 px | −31 px | −46 px ou menos |
+
+**O que não era defeito.** O backlog registrava "gráfico e legendas passam da
+largura da janela em telas de ~1400 px". Medido, isso não se confirma: a 1.400 e
+a 1.920 px, em produção e localmente, nenhum gráfico e nenhuma tabela excede o
+próprio espaço, nem depois de redimensionar a janela já carregada. A anotação
+veio de capturas de tela feitas por uma ferramenta que recorta a imagem em
+1.568 px numa janela de 1.920 — o corte estava na captura, não no painel.
+
+## D-32 · O painel abre a reentrada por forma de ingresso
+
+**10/10/2026** · `api/app/rotas/fluxo.py` (`/v1/fluxo/evasao-reentrada?por_forma=true`)
+e `dashboard/visoes/fluxo.py`
+
+O bloco "Evasão de curso não é evasão da universidade" deixa de comparar duas
+barras — primeiro ingresso e reentrada — e passa a mostrar quatro: o primeiro
+ingresso e cada uma das três formas de reentrada.
+
+**Motivo:** A-30. A barra única de reentrada (71,3%) é a média de grupos que se
+comportam de modos opostos — 58,0%, 77,2% e 85,6% — e induzia a leitura de que
+quem troca de curso evade mais, que os dados desmentem.
+
+**Como:** o agrupamento é feito na API, não no painel, para manter a regra fora
+da apresentação. A rota ganhou o parâmetro `por_forma`; sem ele a resposta é a
+de antes. O painel só traduz os rótulos, fixa a ordem dos grupos e escreve o
+número de vínculos sob cada barra, porque com filtro de curso uma forma de
+reentrada pode ter poucas unidades (em Administração até 2018, o retorno de
+aluno-abandono tem 7 vínculos). O texto do painel não afirma direção nenhuma:
+ela pode mudar com o filtro e com cargas futuras.
+
+**Verificação:** a rota devolve, sem filtro, exatamente os números de A-30, e a
+soma dos quatro grupos fecha com os dois grupos da forma antiga (14.065 +
+2.162).
+
+## D-33 · A Análise 1 soma por grupo de cota antes de empilhar
+
+**11/10/2026** · `dashboard/visoes/demografia.py`
+
+O gráfico da Análise 1 passa a ter um segmento por grupo (ampla concorrência,
+ação afirmativa, não se aplica) em cada ano, em vez de um por código de cota.
+
+**Motivo:** a rota devolve uma linha por código, e o gráfico as empilhava
+direto, colorindo pelo grupo. As alturas estavam certas, mas a ação afirmativa
+aparecia fatiada em vários segmentos da mesma cor, e o valor mostrado ao passar
+o mouse era o de cada código. Em 2016, por exemplo, lia-se ampla concorrência
+87 ao lado de cinco valores de ação afirmativa (351, 294, 47, 39 e 17), sem
+nenhum total — quando o grupo soma 748. A dúvida surgiu de uma leitura real do
+painel: o grupo maior parecia ter números menores.
+
+**O que não muda:** os dados, a rota e a tabela "Detalhamento por código de
+cota", que continua trazendo cada código. A ordem dos grupos foi fixada para
+que as cores não troquem com o filtro.
+
 ---
 
 # Achados
@@ -593,7 +678,7 @@ cópia nenhuma, e a recusa de nome de tabela fora da lista fechada.
 | **A-15** | `ccrs_matrizes` **não** tem campo de obrigatório/optativo | tem `niveis_oferta`; 1.445 CCRs com nível 0 — inferência não confirmada | Limitações (L-08) |
 | **A-16** | ~~A origem republica por semestre~~ — **corrigido por A-23**: a conclusão vinha de uma amostra única | — | — |
 | **A-17** | `data_atualizacao` traz fração de segundo | `2026-08-24T02:30:16.733317` | Desenvolvimento |
-| **A-18** | **Reentradas evadem mais que primeiro ingresso** | 71,3% contra 63,1% — 8 p.p. acima | Resultados (destaque) |
+| **A-18** | **Reentradas evadem mais que primeiro ingresso — no agregado.** O agregado esconde sinais opostos: ver A-30, que o qualifica | 71,3% contra 63,1% — 8 p.p. acima. Descontada a composição por curso e coorte, 4,8 p.p. | Resultados (destaque, sempre junto de A-30) |
 | **A-19** | A retenção é muito desigual entre cursos | Ciência da Computação 20,8% · Medicina 1,3% | Resultados (destaque) |
 | **A-20** | 13,3% dos vínculos são reentrada comprovada | 2.162 de 16.201 | Resultados |
 | **A-21** | `freq_aluno` é derivada: `100 − 100 × numero_faltas / ch_t_p` | conferido contra os dados | Desenvolvimento |
@@ -605,9 +690,13 @@ cópia nenhuma, e a recusa de nome de tabela fora da lista fechada.
 | **A-27** | **Causa das frequências negativas (A-22): as faltas são contadas sobre as aulas registradas, e o denominador é a carga nominal.** Não é diferença de unidade | 752 dos 825 casos (91%) são do estudante com mais faltas da turma; em 89% o excesso é de até 20%, tipicamente 1 a 4 horas-aula. 60 casos extremos em 20 turmas. Pico de 1,26% das matrículas em 2011, praticamente zero desde 2023 | Resultados (qualidade dos dados abertos) |
 | **A-28** | **No runner gratuito do GitHub Actions o pipeline completo leva 71 s** — menos da metade do tempo medido localmente | execução de 10/10/2026, carga forçada das seis bases: 71 s no passo do pipeline, 87 s no job inteiro (4 s para instalar dependências). Localmente, 140 a 170 s. Suíte de testes: 21 s no job. Keep-alive: 9 s | Resultados (o artefato) |
 | **A-29** | **O cache de respostas da API reduzia a latência de centenas de milissegundos para 2 ms — mas o aquecimento na inicialização não o preenchia.** Diagnóstico que levou a D-30 | medido localmente em 10/10/2026: consulta ainda não vista leva 350 a 1.020 ms (ida ao R2); a mesma consulta repetida, 2 ms, igual à rota `/health`, que não toca o R2. Cada combinação nova de filtros paga a ida ao R2 uma vez. O aquecimento só abre a conexão e confere os marts: a primeira consulta após o boot ainda levou 351 ms | Resultados (o artefato) |
+| **A-30** | **A evasão maior das reentradas vem dos retornos, não das transferências internas.** Quem troca de curso dentro da UFFS evade *menos* que o primeiro ingresso; quem retorna como graduado ou após abandono evade muito mais. A categoria "reentrada" soma comportamentos opostos | Gold de 10/10/2026, 16.227 vínculos, 2.162 reentradas. Taxa de evasão de curso: primeiro ingresso 63,1% (n = 14.065) · transferência interna **58,0%** (n = 989) · retorno de aluno-abandono **77,2%** (n = 430) · retorno de graduado **85,6%** (n = 743). Padronizando por curso e coorte (taxa esperada se cada reentrada evadisse como o primeiro ingresso do mesmo curso e ano): transferência interna −6,3 p.p. · aluno-abandono +11,8 · graduado +15,4 · conjunto +4,8 (71,3% observada contra 66,6% esperada) — cerca de 40% da diferença bruta de A-18 era composição. Só nas coortes até 2018, com menos de 1% de vínculos ainda ativos, o padrão se mantém: −7,5 · +14,1 · +18,8. Por curso, entre os 12 com ao menos 30 reentradas, a reentrada evade mais em 10 e menos em 2 (Administração −7,5 p.p., Filosofia −3,8), mediana +7,8 p.p.; olhando só a transferência interna, ela evade mais em apenas 3 de 11 cursos (Administração 43,8% contra 62,7%) | Resultados (destaque). Descreve, não explica: sem identificador de estudante não se sabe o que houve no vínculo anterior (L-01) |
 
-> **A-18 e A-19 ainda são hipóteses.** Precisam de quebra por curso e de
-> validação com as coordenações antes de virarem afirmação.
+> **A-18 e A-30 são descrição, não explicação.** A quebra por curso, coorte e
+> forma de ingresso foi feita em 10/10/2026 e sustenta os números. O *porquê* —
+> por exemplo, se o graduado que retorna sai por já ter um diploma — não está
+> nos dados e depende das coordenações. **A-19 segue hipótese** até essa
+> validação.
 
 ---
 

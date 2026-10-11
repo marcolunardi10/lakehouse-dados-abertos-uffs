@@ -44,10 +44,12 @@ cursam poucos componentes e distorceriam a taxa).
 | 4 | Taxa de evasão de curso | `nome_curso` | `evadidos / total de vínculos` |
 | 5 | Evasão de curso por modalidade de ingresso | `modalidade_inscricao` | mesma taxa; modalidades abaixo de um mínimo de vínculos ficam ocultas, por instabilidade |
 | 6 | Evasão de curso por coorte de ingresso | `ano_ingresso` | taxa de cada coorte, comparada ao longo dos anos de ingresso |
-| — | Primeiro ingresso × reentrada | `e_reentrada` | mesma taxa, separando os vínculos que não são o primeiro na UFFS |
+| — | Primeiro ingresso × reentrada | `e_reentrada` e, nas reentradas, `forma_ingresso` | mesma taxa; o primeiro ingresso forma um grupo e cada forma de reentrada (transferência interna, retorno de aluno-abandono, retorno de graduado) forma o seu, porque somadas escondem sinais opostos (A-30) |
 | 10 | Retenção frente ao prazo de integralização | `nome_curso` | vínculos ativos classificados por progressão |
 
-Rotas: `GET /v1/fluxo/{evasao-curso|evasao-cota|curva-evasao|evasao-reentrada|retencao}`
+Rotas: `GET /v1/fluxo/{evasao-curso|evasao-cota|curva-evasao|evasao-reentrada|retencao}`.
+`evasao-reentrada` aceita `por_forma=true`, que é como o painel a consome; sem o
+parâmetro, devolve os dois grupos somados.
 
 A taxa é calculada na API, a partir das contagens do mart, para que o
 denominador acompanhe os filtros aplicados.

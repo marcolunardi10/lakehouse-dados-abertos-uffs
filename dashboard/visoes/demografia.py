@@ -32,6 +32,11 @@ def renderizar(filtros: FiltrosGlobais) -> None:
     _analise_3(parametros)
 
 
+# Ordem fixa dos grupos na Análise 1, para que cada um mantenha a sua cor
+# qualquer que seja o filtro.
+ORDEM_GRUPOS_COTA = ["AMPLA CONCORRENCIA", "NAO SE APLICA", "ACAO AFIRMATIVA"]
+
+
 def _participacao(dados: pl.DataFrame, dimensao: str) -> pl.DataFrame:
     """Reagrega por ano e converte para participação percentual no ano.
 
@@ -66,12 +71,23 @@ def _analise_1(parametros: dict) -> None:
         st.info("Sem dados para os filtros selecionados.")
         return
 
+    # A rota devolve uma linha por código de cota. Empilhar essas linhas direto
+    # faria de cada código um segmento à parte dentro da mesma cor, e o valor
+    # mostrado ao passar o mouse seria o do código, não o do grupo — a ação
+    # afirmativa apareceria como vários números pequenos ao lado de um só da
+    # ampla concorrência. O gráfico soma por grupo; o código fica na tabela.
+    por_grupo = (
+        cotas.group_by("ano_ingresso", "grupo_modalidade")
+        .agg(pl.col("qtd").sum())
+        .sort("ano_ingresso", "grupo_modalidade")
+    )
     figura = px.bar(
-        cotas,
+        por_grupo,
         x="ano_ingresso",
         y="qtd",
         color="grupo_modalidade",
         color_discrete_sequence=tema.cores().categorica,
+        category_orders={"grupo_modalidade": ORDEM_GRUPOS_COTA},
         labels={
             "ano_ingresso": "Ano de ingresso",
             "qtd": "Ingressantes",

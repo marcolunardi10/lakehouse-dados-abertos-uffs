@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from ..deposito import Deposito, obter_deposito
 from ..filtros import Filtros, obter_filtros
@@ -26,9 +26,26 @@ roteador = APIRouter(prefix="/v1/fluxo", tags=["Visão 2 — fluxo acadêmico"])
 COLUNAS = ("nome_curso", "ano_ingresso", "semestre_ingresso")
 
 
-def _taxa_por(deposito: Deposito, filtros: Filtros, dimensoes: list[str]) -> list[dict[str, Any]]:
+# Rótulo do grupo de primeiro ingresso em `/evasao-reentrada?por_forma=true`.
+PRIMEIRO_INGRESSO = "PRIMEIRO INGRESSO"
+
+
+def _taxa_por(
+    deposito: Deposito,
+    filtros: Filtros,
+    dimensoes: list[str],
+    derivadas: str = "",
+) -> list[dict[str, Any]]:
+    """Taxa de evasão de curso agrupada por `dimensoes`.
+
+    `derivadas` acrescenta colunas calculadas ao mart antes do agrupamento. É
+    texto fixo do código, nunca entrada de usuário.
+    """
     where, parametros = filtros.clausula(*COLUNAS)
     projecao = ", ".join(dimensoes)
+    fonte = deposito.tabela("visao2_fluxo")
+    if derivadas:
+        fonte = f"(SELECT *, {derivadas} FROM {fonte})"
     sql = f"""
         SELECT
             {projecao},
@@ -40,7 +57,7 @@ def _taxa_por(deposito: Deposito, filtros: Filtros, dimensoes: list[str]) -> lis
                 100.0 * sum(CASE WHEN situacao_vinculo = 'EVADIDO' THEN qtd_estudantes ELSE 0 END)
                 / nullif(sum(qtd_estudantes), 0), 2
             ) AS taxa_evasao
-        FROM {deposito.tabela("visao2_fluxo")}
+        FROM {fonte}
         {where}
         GROUP BY {projecao}
         ORDER BY {projecao}
@@ -84,6 +101,10 @@ async def curva_evasao(
     summary="Evasão de curso separada entre primeiro ingresso e reentrada",
 )
 async def evasao_reentrada(
+    por_forma: bool = Query(
+        default=False,
+        description="Abre as reentradas por forma de ingresso, em vez de somá-las",
+    ),
     filtros: Filtros = Depends(obter_filtros),
     deposito: Deposito = Depends(obter_deposito),
 ) -> list[dict[str, Any]]:
@@ -93,8 +114,18 @@ async def evasao_reentrada(
     comprovam que o vínculo não é o primeiro na instituição. É o que permite
     afirmar que a evasão institucional é estritamente menor que a de curso,
     ainda que não seja calculável (D-10).
+
+    Com `por_forma`, cada forma de reentrada vira um grupo próprio e o primeiro
+    ingresso continua somado. A soma das reentradas esconde sinais opostos: a
+    transferência interna evade menos que o primeiro ingresso, os retornos
+    evadem mais (A-30).
     """
-    return _taxa_por(deposito, filtros, ["e_reentrada"])
+    if not por_forma:
+        return _taxa_por(deposito, filtros, ["e_reentrada"])
+    grupo = (
+        f"CASE WHEN e_reentrada THEN forma_ingresso ELSE '{PRIMEIRO_INGRESSO}' END AS grupo"
+    )
+    return _taxa_por(deposito, filtros, ["e_reentrada", "grupo"], derivadas=grupo)
 
 
 @roteador.get("/retencao", summary="Análise 10 — retenção frente ao prazo de integralização")

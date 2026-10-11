@@ -106,14 +106,27 @@ def cores() -> Cores:
     return ESCURO if _modo_escuro() else CLARO
 
 
-def aplicar(figura: go.Figure, *, altura: int | None = None) -> go.Figure:
-    """Estilo comum: superfície, tintas, grade recessiva e legenda no topo."""
+# Largura reservada à direita para o rótulo de valor de uma barra horizontal
+# ("100.0%" na fonte do tema cabe em ~45 px).
+MARGEM_ROTULO_EXTERNO = 56
+
+
+def aplicar(
+    figura: go.Figure, *, altura: int | None = None, rotulos_externos: bool = False
+) -> go.Figure:
+    """Estilo comum: superfície, tintas, grade recessiva e legenda no topo.
+
+    `rotulos_externos` é para barras horizontais com o valor escrito depois da
+    barra: reserva margem fixa à direita. Sem ela o rótulo da barra mais longa
+    depende da folga do eixo, que é proporcional à largura do gráfico, e é
+    cortado em janelas estreitas.
+    """
     c = cores()
     figura.update_layout(
         paper_bgcolor=c.superficie,
         plot_bgcolor=c.superficie,
         font=dict(family=FONTE, color=c.tinta_secundaria, size=13),
-        margin=dict(l=8, r=8, t=48, b=8),
+        margin=dict(l=8, r=MARGEM_ROTULO_EXTERNO if rotulos_externos else 8, t=48, b=8),
         hoverlabel=dict(font_family=FONTE),
         legend=dict(
             orientation="h",
