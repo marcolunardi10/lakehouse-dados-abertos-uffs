@@ -760,6 +760,49 @@ leitura 1, a média de notas por curso (D-34).
 
 **Encerra a fase técnica.** O que resta é redação.
 
+## D-37 · Identidade visual da UFFS no painel, com tema claro fixo
+
+**14/10/2026** · `.streamlit/config.toml`, `dashboard/app.py`,
+`dashboard/componentes/tema.py` e `dashboard/static/`
+
+O painel adota o verde institucional e a assinatura visual do *campus*,
+seguindo o Manual de Identidade Visual da UFFS (Diretoria de Comunicação, fev.
+2017):
+
+- **cor de destaque** `#00693E`, o "verde padrão da assinatura" do manual
+  (seção 2), em abas, controles e botões;
+- **assinatura do Campus Chapecó** no topo da barra lateral, na versão em branco
+  dentro do retângulo verde — a que o manual admite tanto sobre fundo claro
+  quanto escuro —, usando o arquivo oficial sem alteração;
+- **aviso de que o painel não é um sistema oficial da UFFS**, logo abaixo do
+  título. Com a marca e as cores institucionais, a página passaria a parecer um
+  produto da universidade.
+
+**O que ficou de fora, de propósito:**
+
+- *os gráficos*: mantêm a paleta validada para daltonismo (D-19). Ela já tem
+  dois verdes e reserva o verde para o status "bom" da retenção; um terceiro
+  verde de destaque confundiria a leitura;
+- *o ícone da aba do navegador*: segue o emoji. A 16–32 px a assinatura fica
+  ilegível, e o manual lista "dimensão tão pequena que impede a leitura do nome"
+  entre os usos inadequados;
+- *a tipografia Fira Sans*, padrão auxiliar do manual: não é necessária para o
+  uso da marca, e trocá-la mexeria em todo o painel sem ganho analítico.
+
+**O tema escuro deixou de existir.** O Streamlit 1.52.2 aceita uma única cor de
+destaque para os dois temas, e definir a cor faz o painel usar sempre o tema
+personalizado, claro. Fixou-se `base = "light"`, que é também o uso preferencial
+do manual (assinatura verde sobre fundo claro). O `#00693E` não serviria no
+escuro de qualquer forma: contraste de cerca de 2,8:1 contra o fundo, abaixo do
+mínimo de 3:1 para componentes de interface.
+
+**Defeito encontrado no teste e corrigido.** Com o tema fixo em claro,
+`st.context.theme` continua informando a preferência do sistema operacional do
+visitante. Quem preferia o escuro recebia página clara com gráficos escuros e
+legenda quase invisível — medido emulando as duas preferências num navegador
+sem janela. O detector de tema dos gráficos passou a priorizar o tema declarado
+na configuração; nas duas preferências, página e gráficos saem claros.
+
 ---
 
 # Achados

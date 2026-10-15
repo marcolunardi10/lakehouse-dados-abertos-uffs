@@ -6,6 +6,8 @@ Produção:        Streamlit Community Cloud, arquivo principal `dashboard/app.p
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import streamlit as st
 
 from cliente_api import verificar_saude
@@ -18,8 +20,19 @@ st.set_page_config(
     layout="wide",
 )
 
+# Assinatura visual do campus, conforme o Manual de Identidade Visual da UFFS
+# (fev. 2017): a versão em branco dentro do retângulo verde é a admitida tanto
+# sobre fundo claro quanto sobre fundo escuro, então serve aos dois temas.
+st.sidebar.image(
+    str(Path(__file__).parent / "static" / "uffs_campus_chapeco_fundo_verde.png"),
+    width="stretch",
+)
+
 st.title("Indicadores de Trajetória Discente")
-st.caption("Universidade Federal da Fronteira Sul — Campus Chapecó · Dados Abertos institucionais")
+st.caption(
+    "Universidade Federal da Fronteira Sul — Campus Chapecó · Dados Abertos institucionais. "
+    "Projeto acadêmico de Trabalho de Conclusão de Curso; **não é um sistema oficial da UFFS**."
+)
 
 if not verificar_saude():
     st.error(

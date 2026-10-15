@@ -89,17 +89,26 @@ ESCURO = Cores(
 
 
 def _modo_escuro() -> bool:
-    """Descobre o tema ativo do Streamlit, com degradação segura para claro."""
+    """Descobre o tema ativo do Streamlit, com degradação segura para claro.
+
+    O tema declarado em `.streamlit/config.toml` tem precedência. Com ele fixo
+    em claro (D-37), `st.context.theme` continua informando a preferência do
+    sistema operacional do visitante: medido no Streamlit 1.52.2, quem prefere o
+    escuro recebia página clara com gráficos escuros e legenda ilegível.
+    """
+    try:
+        base = st.get_option("theme.base")
+        if base in ("light", "dark"):
+            return base == "dark"
+    except Exception:  # noqa: BLE001 — opção ausente em versões antigas
+        pass
     try:
         tema = st.context.theme
         if tema is not None and getattr(tema, "type", None):
             return tema.type == "dark"
     except Exception:  # noqa: BLE001 — API de tema varia entre versões
         pass
-    try:
-        return (st.get_option("theme.base") or "light") == "dark"
-    except Exception:  # noqa: BLE001
-        return False
+    return False
 
 
 def cores() -> Cores:
