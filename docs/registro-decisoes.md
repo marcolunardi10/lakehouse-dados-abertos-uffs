@@ -133,6 +133,8 @@ curso citado nos marts existe na dimensão.
 
 **29/08/2026** · Detalhe: `indicadores.md`, "Indicador 10"
 
+**Aval da orientadora:** aprovada em 14/10/2026 (D-36).
+
 Classificação em No prazo / Em retenção / Risco de jubilamento / Sem parâmetro,
 usando `quant_semestres` e `limite_semestres` publicados pela UFFS.
 
@@ -162,6 +164,8 @@ verificáveis por terceiros.
 
 **29/08/2026**
 
+**Aval da orientadora:** aprovada em 14/10/2026 (D-36).
+
 O indicador é nomeado "evasão de curso" em painel, API e texto, e a taxa dos
 vínculos de reentrada é exibida ao lado.
 
@@ -175,6 +179,8 @@ UFFS.
 
 **29/08/2026** · Detalhe: `indicadores.md`
 
+**Aval da orientadora:** aprovada em 14/10/2026 (D-36).
+
 **Motivo:** L-03 — a métrica original é incomputável. Amparo na cláusula 4.3.4
 da proposta.
 
@@ -185,6 +191,8 @@ artificialmente menor. Sem sinalização, o gráfico sugeriria melhora inexisten
 ## D-12 · Ampliar o catálogo de três para seis bases
 
 **29/08/2026** · Detalhe: `dicionario-dados.md` §4
+
+**Aval da orientadora:** aprovada em 14/10/2026 (D-36).
 
 Acrescentadas `graduacao_matrizes`, `estruturas_curriculares_graduacao` e
 `graduacao_ccrs_matrizes`.
@@ -512,6 +520,8 @@ permanente anularia a segunda.
 
 **10/10/2026** · `api/app/deposito.py` e as rotas em `api/app/rotas/`
 
+**Aval da orientadora:** aprovada em 14/10/2026 (D-36).
+
 Na inicialização, a API copia os seis marts do R2 para tabelas em memória do
 DuckDB, e todas as consultas das rotas passam a rodar sobre essas tabelas. Cada
 tabela é recarregada do R2 quando passa de 15 minutos de idade, no momento em
@@ -655,6 +665,101 @@ painel: o grupo maior parecia ter números menores.
 cota", que continua trazendo cada código. A ordem dos grupos foi fixada para
 que as cores não troquem com o filtro.
 
+## D-34 · Média de notas por curso (Análise 11)
+
+**14/10/2026** · `api/app/rotas/desempenho.py` (`/v1/desempenho/media-curso`),
+`dashboard/visoes/desempenho.py` e duas colunas novas em `gold/visao3_desempenho`
+
+Responde ao pedido do prof. Pavan na banca por "média/índices do curso" (P4),
+na **leitura 1**, definida com a orientadora em 14/10/2026: média das notas
+finais, calculada sobre os dados que o pipeline já tem. A leitura 2 — índices
+oficiais do INEP (CPC, ENADE, IDD, IGC) — exigiria fonte externa, com formato e
+cadência próprios, e fica para trabalhos futuros. Amparo na cláusula 4.3.4.
+
+**Definição:** média aritmética de `media_final` das matrículas **com
+resultado** — aprovadas ou reprovadas, por qualquer causa — nas turmas que
+atendem o curso, no período letivo filtrado. Cada matrícula pesa igual: a API
+divide a soma das notas pelo número de notas, e não tira média de médias. O
+painel mostra a comparação entre cursos e a evolução por ano letivo, em escala
+fixa de 0 a 10.
+
+**Três escolhas, com o efeito medido** (Silver de 13/10/2026):
+
+- *quem entra*: matrículas sem resultado — trancadas, canceladas, desistências
+  e turmas em curso, 9,7% do total — ficam fora, como nas taxas de reprovação.
+  Muitas têm nota nula ou zero sem que tenha havido avaliação;
+- *notas zero de quem abandonou*: entram. Das 378.454 matrículas com resultado,
+  46.956 têm nota zero (12,4%), quase todas reprovações por nota e falta. Tirar
+  as 5.501 com frequência zero mudaria a média do campus de 6,44 para 6,54 — a
+  escolha não altera a leitura;
+- *curso da turma, não do estudante*: a base não informa o curso de quem se
+  matricula (A-33). A média do curso é a das notas lançadas nas turmas que o
+  atendem, o mesmo recorte da Análise 7. Uma turma compartilhada entra na média
+  de cada curso atendido (L-11).
+
+**Resultado:** a média vai de 4,71 (Engenharia Civil, curso extinto, 195
+matrículas com nota) e 5,53 (Matemática) a 8,52 (Medicina). No campus, entre
+6,1 e 6,7 por ano letivo desde 2010.
+
+**Verificação:** a média e a contagem devolvidas pela rota foram comparadas
+com um cálculo independente feito direto da Silver, curso a curso: nenhuma
+divergência. Um teste novo fixa que a nota nula não entra no denominador.
+
+## D-35 · Taxa de reprovação dos gargalos passa a excluir matrículas sem resultado
+
+**14/10/2026** · `api/app/rotas/desempenho.py` (`/v1/desempenho/gargalos`)
+
+**Defeito corrigido.** `regras.py` define que trancamento, cancelamento,
+desistência e turma em curso "ficam fora do numerador e do denominador das
+taxas de reprovação". A rota dos gargalos não aplicava a regra: somava essas
+matrículas — 41.679, ou 9,7% do mart — ao denominador. O erro não levantava
+exceção e rebaixava todas as taxas. Foi encontrado ao definir a média de D-34,
+que usa o mesmo recorte.
+
+**Efeito**, no recorte padrão (campus, todo o período, piso de 50):
+
+| | Antes | Depois |
+|---|---:|---:|
+| Taxa de reprovação do campus | 21,7% | 24,0% |
+| 1º do *ranking* (TCC III) | 62,4% | 68,5% |
+| Geometria Analítica | 50,9% | 58,1% |
+| Componentes acima do piso | 840 | 802 |
+| Top 10 em comum | — | 7 de 10 |
+
+Entram no top 10 Antropologia I, Fundamentos de Matemática e Ciência Política
+I; saem Física II, Álgebra Linear A e História da Filosofia Moderna. O piso de
+matrículas também passa a contar só matrículas com resultado.
+
+**Escopo:** só a Análise 7 era afetada. A Análise 9 já filtrava as reprovações
+no painel, e a Análise 8 usa outro mart.
+
+## D-36 · Aval da orientadora e encerramento das pendências externas
+
+**14/10/2026**
+
+**Aprovadas pela orientadora:** D-08 (indicador de retenção e corte de 80% do
+prazo), D-10 ("evasão de curso"), D-11 (Análise 6 por coorte), D-12 (seis
+bases), D-30 (marts em memória, desvio da seção 4.2.6), a resposta à sugestão
+de IA da banca (sem identificador de estudante não há predição por estudante) e
+a reescrita da seção 4.2.7 para descrever o que existe (L-10).
+
+**Definido com a orientadora:** o pedido do prof. Pavan (P4) é atendido pela
+leitura 1, a média de notas por curso (D-34).
+
+**Descartadas** para não atrasar a redação, com a defesa em dezembro:
+
+| Pendência | Com quem | Onde fica no texto |
+|---|---|---|
+| Validar a leitura dos indicadores e as hipóteses de A-19 e de A-18/A-30 | coordenações de curso | Resultados descrevem; a explicação fica como hipótese. Validação com gestores vai para trabalhos futuros |
+| Identificador pseudonimizado de estudante | mantenedores do portal | L-01 e trabalhos futuros |
+| `graduacao_cursos` com DataStore vazio | mantenedores do portal | contornado por `matrizes` (D-12) |
+| Resets de TLS no `datastore_search_sql` | mantenedores do portal | D-15, como contribuição ao portal |
+| ENEM → SISU: política ou renomeação | mantenedores do portal | L-07 |
+| `niveis_oferta = 0` como optativa | mantenedores do portal | L-08; a qualificação dos gargalos por fase não será feita |
+| Índices oficiais do INEP (leitura 2 de P4) | prof. Pavan | trabalhos futuros |
+
+**Encerra a fase técnica.** O que resta é redação.
+
 ---
 
 # Achados
@@ -683,7 +788,7 @@ que as cores não troquem com o filtro.
 | **A-20** | 13,3% dos vínculos são reentrada comprovada | 2.162 de 16.201 | Resultados |
 | **A-21** | `freq_aluno` é derivada: `100 − 100 × numero_faltas / ch_t_p` | conferido contra os dados | Desenvolvimento |
 | **A-22** | **Há frequências negativas**: a origem registra mais faltas do que a carga horária da turma | 825 matrículas (0,19%), mínimo **−122,2%**; 823 delas são `REPROVADO POR NOTA E FALTA` e 808 têm média 0 | Resultados (qualidade dos dados abertos) |
-| **A-23** | A origem republica **semanalmente**, às segundas por volta das 02:30, as seis bases no mesmo lote | carimbos 2026-08-24, 2026-09-14 e 2026-10-05, todos segunda-feira às 02:30, com intervalos múltiplos de 7 dias. Histórico de Chapecó nas três cargas: 431.012 → 431.218 → 431.223; ingressantes 16.845 → 16.871 → 16.871 | Desenvolvimento (base de D-25) |
+| **A-23** | A origem republica **semanalmente**, às segundas por volta das 02:30, as seis bases no mesmo lote | carimbos 2026-08-24, 2026-09-14, 2026-10-05 e 2026-10-12, todos segunda-feira às 02:30, com intervalos múltiplos de 7 dias — o último, 7 dias exatos depois do anterior, detectado pela primeira execução agendada. Histórico de Chapecó nas três cargas: 431.012 → 431.218 → 431.223; ingressantes 16.845 → 16.871 → 16.871 | Desenvolvimento (base de D-25) |
 | **A-24** | **Um componente curricular tem vários `cod_ccr`** — versões sucessivas da matriz e oferta por cursos distintos | 271 de 1.198 nomes (22,6%) têm mais de um código. `TRABALHO DE CONCLUSÃO DE CURSO I` tem 15; Geometria Analítica tem 4 (`GEX004` 2010–18, `GEX195` 2013–25, `GEX1142` 2025–26, todos de Ciência da Computação e Engenharia Ambiental; `GEX503` é da Matemática) | Resultados + Desenvolvimento |
 | **A-25** | Uma turma compartilhada **conta a mesma matrícula uma vez por curso** atendido | fator 1,03 no campus (429.622 contra 418.740 reais); só 225 de 14.288 turmas atendem mais de um curso | Limitações (L-11) |
 | **A-26** | As duas colunas de carga horária estão em **unidades diferentes**: `historico.ch_t_p` em horas-aula, `turmas.ch_ccr` em horas | razão exata de 1,2 em 99,97% das matrículas (72 × 60, 54 × 45). Coerente com o art. 111 da Resolução nº 40/CGAE/CONSUNI/2022, que registra a presença por hora-aula | Desenvolvimento |
@@ -691,6 +796,9 @@ que as cores não troquem com o filtro.
 | **A-28** | **No runner gratuito do GitHub Actions o pipeline completo leva 71 s** — menos da metade do tempo medido localmente | execução de 10/10/2026, carga forçada das seis bases: 71 s no passo do pipeline, 87 s no job inteiro (4 s para instalar dependências). Localmente, 140 a 170 s. Suíte de testes: 21 s no job. Keep-alive: 9 s | Resultados (o artefato) |
 | **A-29** | **O cache de respostas da API reduzia a latência de centenas de milissegundos para 2 ms — mas o aquecimento na inicialização não o preenchia.** Diagnóstico que levou a D-30 | medido localmente em 10/10/2026: consulta ainda não vista leva 350 a 1.020 ms (ida ao R2); a mesma consulta repetida, 2 ms, igual à rota `/health`, que não toca o R2. Cada combinação nova de filtros paga a ida ao R2 uma vez. O aquecimento só abre a conexão e confere os marts: a primeira consulta após o boot ainda levou 351 ms | Resultados (o artefato) |
 | **A-30** | **A evasão maior das reentradas vem dos retornos, não das transferências internas.** Quem troca de curso dentro da UFFS evade *menos* que o primeiro ingresso; quem retorna como graduado ou após abandono evade muito mais. A categoria "reentrada" soma comportamentos opostos | Gold de 10/10/2026, 16.227 vínculos, 2.162 reentradas. Taxa de evasão de curso: primeiro ingresso 63,1% (n = 14.065) · transferência interna **58,0%** (n = 989) · retorno de aluno-abandono **77,2%** (n = 430) · retorno de graduado **85,6%** (n = 743). Padronizando por curso e coorte (taxa esperada se cada reentrada evadisse como o primeiro ingresso do mesmo curso e ano): transferência interna −6,3 p.p. · aluno-abandono +11,8 · graduado +15,4 · conjunto +4,8 (71,3% observada contra 66,6% esperada) — cerca de 40% da diferença bruta de A-18 era composição. Só nas coortes até 2018, com menos de 1% de vínculos ainda ativos, o padrão se mantém: −7,5 · +14,1 · +18,8. Por curso, entre os 12 com ao menos 30 reentradas, a reentrada evade mais em 10 e menos em 2 (Administração −7,5 p.p., Filosofia −3,8), mediana +7,8 p.p.; olhando só a transferência interna, ela evade mais em apenas 3 de 11 cursos (Administração 43,8% contra 62,7%) | Resultados (destaque). Descreve, não explica: sem identificador de estudante não se sabe o que houve no vínculo anterior (L-01) |
+| **A-31** | **O pipeline completo usa 661 MB de memória no pico — 4% do que o runner gratuito oferece** | execução forçada de 11/10/2026 no GitHub Actions, medida com `/usr/bin/time -v`: pico de memória residente de 661 MB, num runner com 15.989 MB e 4 núcleos; 82 s de tempo decorrido (71 s na medição de A-28; são duas amostras, e a diferença não foi investigada). O maior conjunto tem 431 mil linhas e é lido inteiro, sem a API *lazy* do Polars | Resultados (o artefato). Sustenta a afirmação da seção 4.2.8 da proposta sobre memória no runner, e mostra a folga para estender aos demais *campi* |
+| **A-32** | **A primeira execução agendada funcionou de ponta a ponta, mas começou quase 8 horas depois do horário marcado.** O `cron` das 06:00 UTC de terça disparou às 13:53 UTC | execução de 13/10/2026: a guarda `--se-atualizado` detectou o carimbo novo da origem (2026-10-12T02:30), as seis bases foram reingeridas com marcador `_COMPLETO` e a Gold regravada às 13:55 UTC; 108 s no passo do pipeline, job concluído com sucesso. A republicação da origem foi mínima: `historico` 431.223 → 431.226 linhas, `turmas` 14.804 → 14.805, as demais iguais. O GitHub não garante o horário de eventos `schedule`, que podem atrasar sob carga | Desenvolvimento (orquestração) e Limitações. Sem efeito prático aqui: a origem publica na segunda e o painel só precisa estar atualizado na semana; a margem de um dia absorve o atraso |
+| **A-33** | **`historico.cod_curso` não é o curso do estudante: é a lista de cursos atendidos pela turma**, num código interno (`9464`, `9464; 9473`…) diferente do `cod_uffs` usado nas demais bases. O dicionário de dados registrava, sem conferir, que equivalia a `ingressantes.cod_uffs` | Silver de 13/10/2026: dentro de cada turma o valor é o mesmo para todas as matrículas (nenhuma das 14.804 turmas varia); o número de códigos é igual a `turmas.quantidade_cursos` em 430.931 de 430.931 matrículas; os 17 códigos internos casam um a um com `turmas.cod_uffs_cursos_turma`. Nenhum valor coincide com `cod_uffs` | Desenvolvimento e Limitações (reforça L-01: nenhuma base de desempenho diz a qual curso pertence o estudante) |
 
 > **A-18 e A-30 são descrição, não explicação.** A quebra por curso, coorte e
 > forma de ingresso foi feita em 10/10/2026 e sustenta os números. O *porquê* —

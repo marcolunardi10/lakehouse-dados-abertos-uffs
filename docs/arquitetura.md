@@ -47,13 +47,14 @@ origem (D-01).
 Concentra tipagem, normalização de categóricas e deduplicação. Os conjuntos
 volumosos são particionados por `ano`.
 
-**Gold** contém tabelas pequenas e amplamente agregadas — **387 KB somando os
+**Gold** contém tabelas pequenas e amplamente agregadas — **495 KB somando os
 seis marts** —, pequenas o bastante para caberem inteiras na memória da API.
 
 Dimensões medidas em 19/09/2026: Bronze **2,03 MB** por carga, Silver 3,79 MB,
-Gold 0,38 MB. O pipeline completo roda em **71 segundos** no *runner* gratuito
-do GitHub Actions (medido em 10/10/2026; o job inteiro leva 87 s) e em cerca de
-dois a três minutos numa máquina local.
+Gold 0,38 MB. O pipeline completo roda em **71 a 82 segundos** no *runner*
+gratuito do GitHub Actions (medições de 10 e 11/10/2026) e em cerca de dois a
+três minutos numa máquina local. O pico de memória é de **661 MB**, num *runner*
+que oferece 16 GB (A-31).
 
 ## Fluxo de execução
 
@@ -100,7 +101,7 @@ linha (D-21). O pandas permanece no ambiente do painel apenas como dependência
 obrigatória do Streamlit.
 
 Com 431 mil linhas no maior conjunto, a leitura é feita inteira em memória e
-sobra folga. A API *lazy* do Polars (`scan_parquet`) fica como reserva caso o
+sobra folga: o pico medido no *runner* é de 661 MB em 16 GB (A-31). A API *lazy* do Polars (`scan_parquet`) fica como reserva caso o
 volume cresça, por exemplo com a extensão a todos os *campi*.
 
 ### DuckDB na API em vez de um banco provisionado

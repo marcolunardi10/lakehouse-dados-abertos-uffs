@@ -122,11 +122,12 @@ Junção: `(ano, semestre, cod_ccr, id_unico_turma)`.
 
 | # | Indicador | Agregação | Fórmula |
 |---|---|---|---|
-| 7 | *Ranking* de gargalos curriculares | `nome_ccr`, opcionalmente × `curso` | 10 componentes com maior `reprovados / matrículas`, acima de um piso mínimo de matrículas |
+| 7 | *Ranking* de gargalos curriculares | `nome_ccr`, opcionalmente × `curso` | 10 componentes com maior `reprovados / matrículas com resultado`, acima de um piso mínimo de matrículas com resultado. Trancamentos, cancelamentos, desistências e turmas em curso ficam fora (D-35) |
 | 8 | Frequência × média final | faixas de 5 pontos percentuais de `freq_aluno` | média final ponderada por faixa; tamanho do ponto = matrículas na faixa |
 | 9 | Perfil da reprovação | `resultado` | participação de cada causa no total de reprovações |
+| 11 | Média de notas por curso | `curso` ou `ano` | `soma das notas / número de notas` das matrículas com resultado, nas turmas que atendem o curso; comparação entre cursos e evolução por ano letivo (D-34) |
 
-Rotas: `GET /v1/desempenho/{gargalos|frequencia-media|perfil-reprovacao}`
+Rotas: `GET /v1/desempenho/{gargalos|frequencia-media|perfil-reprovacao|media-curso}`
 
 Notas:
 

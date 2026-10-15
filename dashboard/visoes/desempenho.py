@@ -1,4 +1,4 @@
-"""Visão 3 — Desempenho e gargalos curriculares (Análises 7, 8 e 9)."""
+"""Visão 3 — Desempenho e gargalos curriculares (Análises 7, 8, 9 e 11)."""
 
 from __future__ import annotations
 
@@ -48,6 +48,7 @@ def renderizar(filtros: FiltrosGlobais) -> None:
     gargalos = _analise_7(parametros)
     _analise_8(gargalos)
     _analise_9(parametros)
+    _analise_11(parametros)
 
 
 # --------------------------------------------------------------------- Análise 7
@@ -66,7 +67,7 @@ def _analise_7(parametros: dict) -> pl.DataFrame:
     )
     agrupamento = AGRUPAMENTOS[rotulo]
     minimo = coluna_b.slider(
-        "Mínimo de matrículas históricas",
+        "Mínimo de matrículas com resultado",
         10,
         500,
         50,
@@ -120,7 +121,9 @@ def _analise_7(parametros: dict) -> pl.DataFrame:
         "A proposta pedia o *ranking* por reprovação **absoluta**. Ordenar por "
         "contagem faria a lista medir tamanho de turma, não dificuldade: os "
         "obrigatórios de primeira fase apareceriam sempre. Aqui a ordenação é "
-        "por taxa, com piso mínimo de matrículas."
+        "por taxa, com piso mínimo de matrículas. A taxa é reprovados sobre "
+        "matrículas **com resultado**: trancamentos, cancelamentos e turmas em "
+        "curso não contam como aprovação nem como reprovação."
     )
 
     reunidos = ordenado.filter(pl.col("n_codigos") > 1)
@@ -142,7 +145,7 @@ def _analise_7(parametros: dict) -> pl.DataFrame:
                     "nome_ccr": "Componente",
                     "codigos": "Códigos",
                     "n_codigos": "Nº de códigos",
-                    "total_matriculas": "Matrículas",
+                    "total_matriculas": "Matrículas com resultado",
                     "reprovados": "Reprovados",
                     "taxa_reprovacao": "Taxa (%)",
                 }
@@ -309,6 +312,82 @@ def _analise_9(parametros: dict) -> None:
     with st.expander("Ver todos os resultados, não só as reprovações"):
         st.dataframe(
             dados.rename({"resultado": "Resultado", "qtd": "Matrículas"}),
+            width="stretch",
+            hide_index=True,
+        )
+
+
+# -------------------------------------------------------------------- Análise 11
+def _analise_11(parametros: dict) -> None:
+    st.markdown("#### Análise 11 — Média de notas por curso")
+    st.caption(
+        "Média das notas finais lançadas nas turmas que atendem cada curso, no "
+        "período filtrado. Entram aprovações e reprovações de qualquer causa — "
+        "inclusive as notas zero de quem reprovou por nota e falta —; trancamentos, "
+        "cancelamentos e turmas em curso ficam de fora."
+    )
+
+    por_curso = buscar("/v1/desempenho/media-curso", agrupamento="curso", **parametros)
+    por_ano = buscar("/v1/desempenho/media-curso", agrupamento="ano", **parametros)
+    if por_curso.is_empty():
+        st.info("Sem dados para os filtros selecionados.")
+        return
+
+    cores = tema.cores()
+
+    ordenado = por_curso.sort("media")
+    figura = px.bar(
+        ordenado,
+        x="media",
+        y="curso",
+        orientation="h",
+        labels={"media": "Média final (0 a 10)", "curso": ""},
+        hover_data=["matriculas_com_nota", "aprovados"],
+        text="media",
+    )
+    figura.update_traces(
+        marker_color=cores.categorica[0],
+        texttemplate="%{text:.2f}",
+        textposition="outside",
+        cliponaxis=False,
+    )
+    tema.separar_barras(figura, arredondar=True)
+    tema.aplicar(
+        figura, altura=max(320, 28 * ordenado.height + 120), rotulos_externos=True
+    )
+    # Escala fixa de 0 a 10: médias de cursos diferentes ficam comparáveis
+    # entre recortes, e a diferença não é exagerada por um eixo truncado.
+    figura.update_xaxes(range=[0, 10])
+    st.plotly_chart(figura, width="stretch")
+
+    figura = px.line(
+        por_ano,
+        x="ano",
+        y="media",
+        markers=True,
+        labels={"ano": "Ano letivo", "media": "Média final (0 a 10)"},
+        hover_data=["matriculas_com_nota"],
+    )
+    figura.update_traces(
+        line=dict(color=cores.categorica[0], width=2),
+        marker=dict(size=7, line=dict(color=cores.superficie, width=2)),
+    )
+    tema.aplicar(figura, altura=320)
+    figura.update_layout(title_text="Evolução da média no recorte, por ano letivo")
+    figura.update_yaxes(range=[0, 10])
+    figura.update_xaxes(dtick=1)
+    st.plotly_chart(figura, width="stretch")
+
+    with st.expander("Ver tabela"):
+        st.dataframe(
+            por_curso.rename(
+                {
+                    "curso": "Curso",
+                    "matriculas_com_nota": "Matrículas com nota",
+                    "aprovados": "Aprovações",
+                    "media": "Média",
+                }
+            ),
             width="stretch",
             hide_index=True,
         )

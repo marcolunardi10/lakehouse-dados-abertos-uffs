@@ -74,7 +74,7 @@ republica semanalmente; o pipeline só reprocessa quando detecta atualização.
 |---|---|
 | Demografia e ingresso | Modalidade de cota · gênero e raça ao longo do tempo · formas de ingresso |
 | Fluxo acadêmico | Evasão de curso por curso, por modalidade e por coorte · retenção frente ao prazo de integralização |
-| Desempenho | Gargalos curriculares · frequência × média final · perfil da reprovação |
+| Desempenho | Gargalos curriculares · frequência × média final · perfil da reprovação · média de notas por curso |
 
 As bases não expõem identificador de estudante. Por isso o grão é o vínculo
 estudante-curso — daí "evasão de curso", e não evasão institucional — e não é

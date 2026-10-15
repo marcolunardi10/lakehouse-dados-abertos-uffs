@@ -314,7 +314,17 @@ def _historico_com_turma(historico: pl.DataFrame, turmas: pl.DataFrame) -> pl.Da
 def mart_desempenho(historico: pl.DataFrame, turmas: pl.DataFrame) -> pl.DataFrame:
     """Grão: CCR × período × curso, com contagens por resultado.
 
-    Alimenta as Análises 7 (ranking de gargalos) e 9 (perfil da reprovação).
+    Alimenta as Análises 7 (ranking de gargalos), 9 (perfil da reprovação) e 11
+    (média de notas por curso).
+
+    O curso é o da **turma**, não o do estudante: `historico.cod_curso` repete a
+    lista de cursos atendidos pela turma, num código interno, e não identifica o
+    curso de quem se matriculou (A-33).
+
+    `soma_media_final` e `qtd_com_nota` existem para que a API calcule a média
+    exata sob qualquer filtro. Ponderar `media_final_media` por
+    `qtd_matriculas` erraria sempre que houvesse nota nula no grupo, porque a
+    contagem inclui essas matrículas e a média não.
     """
     base = _historico_com_turma(historico, turmas).with_columns(regras.classificar_resultado())
     regras.alertar_categorias_nao_mapeadas(base, "resultado", "Gold/desempenho")
@@ -346,6 +356,8 @@ def mart_desempenho(historico: pl.DataFrame, turmas: pl.DataFrame) -> pl.DataFra
         .agg(
             pl.len().alias("qtd_matriculas"),
             pl.col("media_final").mean().round(2).alias("media_final_media"),
+            pl.col("media_final").sum().alias("soma_media_final"),
+            pl.col("media_final").count().alias("qtd_com_nota"),
             pl.col("freq_aluno").mean().round(2).alias("freq_media"),
         )
         .sort("curso", "cod_ccr", "ano", "semestre")

@@ -173,3 +173,39 @@ def test_marts_da_gold_batem_com_os_aquecidos_pela_api():
     texto = deposito.read_text(encoding="utf-8")
     for mart in gold.MARTS:
         assert f'"{mart}"' in texto, f"mart '{mart}' não está em MARTS_AQUECIDOS"
+
+
+def test_mart_desempenho_carrega_soma_e_contagem_das_notas_nao_nulas():
+    """A média sob filtro é soma / contagem de notas; a nota nula não pode
+    entrar no denominador (Análise 11)."""
+    historico = pl.DataFrame(
+        {
+            "ano": [2020, 2020, 2020],
+            "semestre": [1, 1, 1],
+            "cod_ccr": ["GEX001"] * 3,
+            "id_unico_turma": [10, 10, 10],
+            "freq_aluno": [100.0, 90.0, 80.0],
+            "media_final": [8.0, 6.0, None],
+            "sit_matricula": ["APROVADO", "APROVADO", "APROVADO"],
+        },
+        schema_overrides={"ano": pl.Int32, "semestre": pl.Int32, "id_unico_turma": pl.Int32},
+    )
+    turmas = pl.DataFrame(
+        {
+            "ano": [2020],
+            "semestre": [1],
+            "cod_ccr": ["GEX001"],
+            "id_unico_turma": [10],
+            "nome_ccr": ["CÁLCULO"],
+            "ch_ccr": [60],
+            "cursos_turma": ["MATEMÁTICA"],
+            "nome_campus": ["CHAPECÓ"],
+            "sit_turma": ["CONSOLIDADA"],
+        },
+        schema_overrides={"ano": pl.Int32, "semestre": pl.Int32, "id_unico_turma": pl.Int32},
+    )
+    linha = gold.mart_desempenho(historico, turmas).row(0, named=True)
+    assert linha["qtd_matriculas"] == 3
+    assert linha["qtd_com_nota"] == 2
+    assert linha["soma_media_final"] == 14.0
+    assert linha["soma_media_final"] / linha["qtd_com_nota"] == 7.0

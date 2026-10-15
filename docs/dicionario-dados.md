@@ -91,7 +91,7 @@ agrega por **nome** (ver `indicadores.md`).
 | Coluna | Tipo | Observações |
 |---|---|---|
 | `ano`, `semestre` | int4 | |
-| `cod_curso` | text | código UFFS do curso (equivale a `ingressantes.cod_uffs`) |
+| `cod_curso` | text | **não** é o curso do estudante: lista dos cursos atendidos pela **turma**, separada por `;`, num código interno do sistema acadêmico (ex.: `9464; 9473`) que não coincide com `cod_uffs`. Constante dentro da turma. Corrigido em 14/10/2026 (A-33) |
 | `cod_ccr` | text | |
 | `id_unico_turma` | **text** | tipagem divergente de `turmas.id_unico_turma` (int4) — exige *cast* |
 | `ch_t_p` | int4 | carga horária teórica + prática, em **horas-aula** — não é a mesma unidade de `turmas.ch_ccr` (seção 3.1) |
