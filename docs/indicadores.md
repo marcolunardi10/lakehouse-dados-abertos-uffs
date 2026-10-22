@@ -4,8 +4,10 @@ As nove análises definidas na seção 4.3 da proposta do TCC I, mais o indicado
 de retenção acrescentado depois, traduzidos em contrato técnico: fonte, chave de
 agregação, fórmula e rota da API.
 
-Filtros globais da barra lateral: **curso**, **ano de ingresso** e **semestre de
-ingresso**, aplicados às três visões. Escopo fixo: *campus* Chapecó.
+Filtros globais da barra lateral: **curso**, **ano** e **semestre**, aplicados às
+três visões. Nas Visões 1 e 2, ano e semestre são os de ingresso; na Visão 3, os
+do período letivo da turma. Com o controle de ano num extremo, o limite não é
+enviado (D-39). Escopo fixo: *campus* Chapecó.
 
 As justificativas de cada escolha estão em
 [`registro-decisoes.md`](registro-decisoes.md), citadas aqui pelo identificador
@@ -157,7 +159,10 @@ A Análise 7 agrega por **nome**, em dois recortes selecionáveis (D-27):
 - **por disciplina (campus)** — une versões de matriz e cursos;
 - **por disciplina e curso** — mantém os cursos separados.
 
-Cada linha informa quantos códigos reuniu e quais. A Análise 8 usa o mesmo grão,
+Cada linha informa quantos códigos reuniu e quais e, no recorte de campus, os
+cursos atendidos pelas turmas, com as matrículas de cada um (D-40). Componentes de trabalho de
+conclusão de curso vêm marcados e aparecem em cinza no painel: a reprovação neles
+não é comparável à das disciplinas (A-43, D-41). A Análise 8 usa o mesmo grão,
 para não exibir apenas um fragmento da disciplina.
 
 ---

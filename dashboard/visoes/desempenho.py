@@ -22,6 +22,12 @@ AGRUPAMENTOS = {
     "Por disciplina e curso": "curso",
 }
 
+# Componentes de trabalho de conclusão aparecem no ranking com outra cor: a
+# reprovação neles não é comparável à das disciplinas de conteúdo (A-43, D-41).
+# A classificação vem da API; o painel só desenha.
+TIPO_DISCIPLINA = "Disciplina"
+TIPO_TCC = "Trabalho de conclusão de curso"
+
 ROTULOS_REPROVACAO = {
     "REPROVADO_NOTA": "Por nota",
     "REPROVADO_FREQUENCIA": "Por frequência",
@@ -87,26 +93,67 @@ def _analise_7(parametros: dict) -> pl.DataFrame:
         st.info("Sem dados para os filtros selecionados.")
         return gargalos
 
-    # No recorte por curso, o rótulo precisa dizer de qual curso se trata.
+    # O rótulo precisa dizer de qual curso se trata. No recorte por curso, é o
+    # próprio curso da linha; no de campus, o curso com mais matrículas e,
+    # se houver outros, quantos são — a lista completa vai no tooltip e na
+    # tabela (D-40).
+    # A coluna `cursos` só existe a partir da API com D-40; durante uma
+    # implantação o painel pode chegar antes dela.
+    tem_cursos = "cursos" in gargalos.columns
     if agrupamento == "curso":
         gargalos = gargalos.with_columns(
             (pl.col("nome_ccr") + pl.lit("  ·  ") + pl.col("curso")).alias("rotulo")
         )
-    else:
+    elif not tem_cursos:
         gargalos = gargalos.with_columns(pl.col("nome_ccr").alias("rotulo"))
+    else:
+        principal = pl.col("cursos").str.split(" (").list.first()
+        outros = pl.col("n_cursos") - 1
+        gargalos = gargalos.with_columns(
+            pl.when(outros > 0)
+            .then(
+                pl.col("nome_ccr") + pl.lit("  ·  ") + principal
+                + pl.lit(" e +") + outros.cast(pl.String)
+            )
+            .otherwise(pl.col("nome_ccr") + pl.lit("  ·  ") + principal)
+            .alias("rotulo")
+        )
+
+    tem_marca_tcc = "e_trabalho_conclusao" in gargalos.columns
+    gargalos = gargalos.with_columns(
+        pl.when(pl.col("e_trabalho_conclusao") if tem_marca_tcc else pl.lit(False))
+        .then(pl.lit(TIPO_TCC))
+        .otherwise(pl.lit(TIPO_DISCIPLINA))
+        .alias("tipo")
+    )
 
     ordenado = gargalos.sort("taxa_reprovacao")
+    dados_tooltip = ["codigos", "n_codigos", "total_matriculas", "reprovados"]
+    if agrupamento == "nome" and tem_cursos:
+        dados_tooltip.append("cursos")
     figura = px.bar(
         ordenado,
         x="taxa_reprovacao",
         y="rotulo",
         orientation="h",
-        labels={"taxa_reprovacao": "Taxa de reprovação (%)", "rotulo": ""},
-        hover_data=["codigos", "n_codigos", "total_matriculas", "reprovados"],
+        labels={
+            "taxa_reprovacao": "Taxa de reprovação (%)",
+            "rotulo": "",
+            "cursos": "Cursos (matrículas)",
+        },
+        hover_data=dados_tooltip,
         text="taxa_reprovacao",
+        color="tipo",
+        color_discrete_map={
+            TIPO_DISCIPLINA: tema.cores().categorica[0],
+            TIPO_TCC: tema.cores().tinta_suave,
+        },
+        category_orders={"tipo": [TIPO_DISCIPLINA, TIPO_TCC]},
     )
+    # Com duas séries, o Plotly ordenaria o eixo por série; a ordem é a da taxa.
+    figura.update_yaxes(categoryorder="array", categoryarray=ordenado["rotulo"].to_list())
+    figura.update_layout(legend_title_text="")
     figura.update_traces(
-        marker_color=tema.cores().categorica[0],
         texttemplate="%{text:.1f}%",
         textposition="outside",
         cliponaxis=False,
@@ -136,11 +183,34 @@ def _analise_7(parametros: dict) -> pl.DataFrame:
             "com uma taxa própria. Os códigos estão no *tooltip* e na tabela."
         )
 
-    with st.expander("Ver tabela com os códigos reunidos"):
+    if (ordenado["tipo"] == TIPO_TCC).any():
+        st.caption(
+            "Em cinza, componentes de **trabalho de conclusão de curso**. A "
+            "reprovação neles não é comparável à das disciplinas: cada curso "
+            "organiza o trabalho de um jeito, e quem reprova costuma ter nota "
+            "próxima de zero com frequência alta, o que indica trabalho não "
+            "entregue no semestre. Leia-os no recorte por curso. No recorte de "
+            "*campus*, um mesmo nome, como *Trabalho de Conclusão de Curso I*, "
+            "reúne componentes diferentes de vários cursos."
+        )
+
+    if agrupamento == "nome" and tem_cursos:
+        st.caption(
+            "Ao lado de cada componente aparece o curso com mais matrículas nele. "
+            "A lista completa, com as matrículas de cada curso, está no *tooltip* e "
+            "na tabela. O curso é o **da turma**, e não o do estudante: as bases "
+            "não informam o curso de quem se matricula. Uma turma que atende mais "
+            "de um curso conta em cada um deles."
+        )
+
+    tabela = ordenado.sort("taxa_reprovacao", descending=True).drop(
+        "rotulo", "e_trabalho_conclusao", strict=False
+    )
+    if agrupamento == "curso":
+        tabela = tabela.drop("cursos", "n_cursos", strict=False)
+    with st.expander("Ver tabela com os códigos e os cursos"):
         st.dataframe(
-            ordenado.sort("taxa_reprovacao", descending=True)
-            .drop("rotulo")
-            .rename(
+            tabela.rename(
                 {
                     "nome_ccr": "Componente",
                     "codigos": "Códigos",
@@ -148,7 +218,11 @@ def _analise_7(parametros: dict) -> pl.DataFrame:
                     "total_matriculas": "Matrículas com resultado",
                     "reprovados": "Reprovados",
                     "taxa_reprovacao": "Taxa (%)",
-                }
+                    "n_cursos": "Nº de cursos",
+                    "cursos": "Cursos (matrículas)",
+                    "tipo": "Tipo",
+                },
+                strict=False,
             ),
             width="stretch",
             hide_index=True,
@@ -322,8 +396,8 @@ def _analise_11(parametros: dict) -> None:
     st.markdown("#### Análise 11 — Média de notas por curso")
     st.caption(
         "Média das notas finais lançadas nas turmas que atendem cada curso, no "
-        "período filtrado. Entram aprovações e reprovações de qualquer causa — "
-        "inclusive as notas zero de quem reprovou por nota e falta —; trancamentos, "
+        "período filtrado. Entram aprovações e reprovações de qualquer causa, "
+        "inclusive as notas zero de quem reprovou por nota e falta. Trancamentos, "
         "cancelamentos e turmas em curso ficam de fora."
     )
 

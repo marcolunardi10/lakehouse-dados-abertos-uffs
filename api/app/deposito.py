@@ -113,6 +113,21 @@ class Deposito:
                     )
         return mart
 
+    def tem_coluna(self, tabela: str, coluna: str) -> bool:
+        """Diz se a tabela em memória de um mart tem a coluna.
+
+        Para rotas que leem uma coluna nova da Gold: a API pode ser implantada
+        antes de o pipeline regravar o mart, e nesse intervalo a coluna ainda
+        não existe.
+        """
+        with self._trava:
+            linha = self._conexao.execute(
+                "SELECT count(*) FROM information_schema.columns "
+                "WHERE table_name = ? AND column_name = ?",
+                [tabela, coluna],
+            ).fetchone()
+        return bool(linha and linha[0])
+
     # ------------------------------------------------------------------ consulta
     def consultar(self, sql: str, parametros: list[Any] | None = None) -> list[dict[str, Any]]:
         """Executa SQL parametrizado e devolve registros prontos para serializar.

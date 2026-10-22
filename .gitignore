@@ -70,6 +70,9 @@ build/
 *.synctex.gz
 *.toc
 
+# Texto do TCC II em LaTeX: escrito aqui e levado ao Overleaf, fora do repositório
+redacao/
+
 # Sistema operacional / editores
 .DS_Store
 Thumbs.db

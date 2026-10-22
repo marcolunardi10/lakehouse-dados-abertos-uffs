@@ -142,3 +142,26 @@ def test_indice_de_busca_nao_faz_parte_de_nenhum_contrato():
 def test_caminho_da_bronze_usa_a_particao_declarada():
     caminho = bronze.prefixo_bronze("turmas", "2026-09-19")
     assert caminho == f"bronze/turmas/{bronze.CHAVE_PARTICAO_BRONZE}=2026-09-19/"
+
+
+def test_paginacao_ordena_pela_coluna_pedida_e_so_quando_pedida():
+    """Sem ORDER BY, LIMIT/OFFSET não garante páginas disjuntas (D-38)."""
+    from uffs_pipeline.ckan import ClienteCKAN
+
+    enviadas = []
+
+    class Falso(ClienteCKAN):
+        def __init__(self):
+            self.config = type("C", (), {"tamanho_pagina": 2, "url_sql": "x"})()
+
+        def _requisitar(self, url, corpo):
+            enviadas.append(corpo["sql"])
+            return {"records": [{"_id": 1}, {"_id": 2}] if len(enviadas) == 1 else [{"_id": 3}]}
+
+    cliente = Falso()
+    assert [len(p) for p in cliente.consultar_paginado("SELECT 1", ordenar_por="_id")] == [2, 1]
+    assert all(' ORDER BY "_id" LIMIT 2 OFFSET ' in q for q in enviadas)
+
+    enviadas.clear()
+    list(cliente.consultar_paginado("SELECT 1"))
+    assert all("ORDER BY" not in q for q in enviadas)

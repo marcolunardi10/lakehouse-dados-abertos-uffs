@@ -6,8 +6,9 @@ execução.
 
 Regras aplicadas aqui (e em nenhum outro lugar):
   - conversão de tipos a partir das strings da Bronze;
-  - remoção da coluna técnica `_id` do DataStore;
-  - deduplicação por chave de negócio;
+  - deduplicação apenas pela chave técnica `_id` do DataStore, que em seguida é
+    removida; chaves de negócio são só conferidas e relatadas, nunca usadas
+    para descartar linhas (D-03);
   - normalização de categóricas: espaços nas pontas, caixa alta nas colunas de
     status e unificação de vazio / `N/A` / `NULL` em nulo;
   - normalização do tipo de `id_unico_turma`, que difere entre as bases.

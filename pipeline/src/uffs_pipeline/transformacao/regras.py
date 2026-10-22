@@ -237,6 +237,30 @@ def marcar_reentrada(coluna: str = "forma_ingresso") -> pl.Expr:
 
 
 # --------------------------------------------------------------------------- #
+# Trabalho de conclusão de curso
+#
+# A reprovação nesses componentes não é comparável à das disciplinas de
+# conteúdo: cada curso organiza o trabalho de um jeito (de 1 a 3 componentes,
+# com nomes diferentes) e a reprovação tem perfil de trabalho não entregue —
+# média dos reprovados abaixo de 2 em 25 dos 27 componentes com reprovação,
+# quase sempre com frequência alta (A-43). O painel os destaca no ranking de
+# gargalos em vez de tratá-los como gargalo de conteúdo (D-41).
+#
+# Casa os 12 nomes de Chapecó na data de corte, de "TRABALHO DE CONCLUSÃO DE
+# CURSO" a "SEMINÁRIO DE TRABALHO DE CONCLUSÃO DE CURSO II" e "TRABALHO DE
+# CURSO I" (Medicina). Fica de fora, de propósito, "PLANEJAMENTO DE TCC E
+# ESTÁGIO CURRICULAR SUPERVISIONADO": é disciplina de planejamento, com aula.
+# --------------------------------------------------------------------------- #
+
+PADRAO_TRABALHO_CONCLUSAO = r"CONCLUSÃO D[EO] CURSO|^TRABALHO DE CURSO\b"
+
+
+def marcar_trabalho_conclusao(coluna: str = "nome_ccr") -> pl.Expr:
+    """Marca componentes curriculares de trabalho de conclusão de curso."""
+    return pl.col(coluna).str.contains(PADRAO_TRABALHO_CONCLUSAO).alias("e_trabalho_conclusao")
+
+
+# --------------------------------------------------------------------------- #
 # Retenção / progressão no curso
 #
 # Responde ao pedido da banca de "avaliar retenção" (P9). O parâmetro NÃO é

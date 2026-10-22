@@ -63,6 +63,7 @@ que oferece 16 GB (A-31).
    carimbo `data_atualizacao` não mudou, o job encerra em poucos segundos sem
    transferir dados (D-25).
 2. **Ingestão.** Consome `datastore_search_sql` com paginação de 32.000 linhas,
+   ordenada por `_id` (D-38),
    já com o filtro de *campus* na própria consulta. Antes de gravar, **valida o
    esquema recebido contra o contrato do catálogo** — aborta se faltar coluna,
    avisa se houver coluna nova, exige chaves sem nulos (D-23) — e descarta o

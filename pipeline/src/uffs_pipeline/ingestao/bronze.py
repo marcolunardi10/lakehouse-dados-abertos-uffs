@@ -182,7 +182,9 @@ def ingerir_dataset(
     log.info("Ingerindo '%s' (%s)...", dataset.nome, dataset.titulo)
     chaves: list[str] = []
 
-    for parte, registros in enumerate(cliente.consultar_paginado(dataset.sql)):
+    # Ordem fixa por `_id`: só ela garante que as páginas não se sobreponham (D-38).
+    paginas = cliente.consultar_paginado(dataset.sql, ordenar_por=COLUNA_TECNICA)
+    for parte, registros in enumerate(paginas):
         # Tudo como string: a Bronze não interpreta, apenas preserva.
         df = pl.DataFrame(registros, schema={c: pl.String for c in registros[0]}, strict=False)
         if COLUNA_INDICE_BUSCA in df.columns:

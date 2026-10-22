@@ -209,3 +209,5 @@ def test_mart_desempenho_carrega_soma_e_contagem_das_notas_nao_nulas():
     assert linha["qtd_com_nota"] == 2
     assert linha["soma_media_final"] == 14.0
     assert linha["soma_media_final"] / linha["qtd_com_nota"] == 7.0
+    # D-41: a API lê a marca de trabalho de conclusão do mart.
+    assert linha["e_trabalho_conclusao"] is False

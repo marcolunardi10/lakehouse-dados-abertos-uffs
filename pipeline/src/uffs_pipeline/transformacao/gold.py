@@ -69,10 +69,10 @@ def mart_dim_curso(ingressantes: pl.DataFrame, matrizes: pl.DataFrame) -> pl.Dat
     docs/dicionario-dados.md §5). `graduacao_matrizes` o substitui e ainda traz
     grau acadêmico e situação do curso.
 
-    Ela lista apenas matrizes vigentes, porém: cursos extintos que só existem no
-    histórico de `ingressantes` (medido em 29/08/2026: Ciências Econômicas,
-    Engenharia Civil e Educação Especial Inclusiva) precisam do complemento
-    derivado, senão sumiriam dos filtros do painel.
+    Ela não traz, porém, três cursos criados recentemente que só existem em
+    `ingressantes` (primeiros ingressos de 2024 a 2026: Educação Especial
+    Inclusiva, Ciências Econômicas e Engenharia Civil — A-41). Eles precisam do
+    complemento derivado, senão sumiriam dos filtros do painel.
     """
     oficial = matrizes.select(
         pl.col("cod_curso").alias("cod_uffs"),
@@ -360,6 +360,7 @@ def mart_desempenho(historico: pl.DataFrame, turmas: pl.DataFrame) -> pl.DataFra
             pl.col("media_final").count().alias("qtd_com_nota"),
             pl.col("freq_aluno").mean().round(2).alias("freq_media"),
         )
+        .with_columns(regras.marcar_trabalho_conclusao())
         .sort("curso", "cod_ccr", "ano", "semestre")
     )
 

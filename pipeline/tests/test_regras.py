@@ -217,6 +217,47 @@ def test_transferencia_externa_nao_e_reentrada():
 
 
 # --------------------------------------------------------------------------- #
+# Trabalho de conclusão de curso (A-43, D-41)
+# --------------------------------------------------------------------------- #
+
+# Os 12 nomes de Chapecó na data de corte (13/10/2026).
+NOMES_TRABALHO_CONCLUSAO = [
+    "TRABALHO DE CONCLUSÃO DE CURSO",
+    "TRABALHO DE CONCLUSÃO DE CURSO I",
+    "TRABALHO DE CONCLUSÃO DE CURSO II",
+    "TRABALHO DE CONCLUSÃO DE CURSO III",
+    "TRABALHO DE CONCLUSÃO DO CURSO I",
+    "TRABALHO DE CONCLUSÃO DO CURSO II",
+    "SEMINÁRIO DE TRABALHO DE CONCLUSÃO DE CURSO I",
+    "SEMINÁRIO DE TRABALHO DE CONCLUSÃO DE CURSO II",
+    "LABORATÓRIO DE GESTÃO III - PROJETO DE TRABALHO DE CONCLUSÃO DE CURSO",
+    "LABORATÓRIO DE GESTÃO IV - TRABALHO DE CONCLUSÃO DE CURSO",
+    "TRABALHO DE CURSO I",
+    "TRABALHO DE CURSO II",
+]
+
+
+def test_todos_os_nomes_de_trabalho_de_conclusao_sao_marcados():
+    saidas = _classificar(
+        NOMES_TRABALHO_CONCLUSAO, regras.marcar_trabalho_conclusao(), "nome_ccr"
+    )
+    assert all(saidas)
+
+
+def test_estagio_planejamento_e_disciplinas_nao_sao_trabalho_de_conclusao():
+    """Vizinhos de nome que têm aula e avaliação próprias."""
+    nomes = [
+        "PLANEJAMENTO DE TCC E ESTÁGIO CURRICULAR SUPERVISIONADO",
+        "LABORATÓRIO DE GESTÃO I - ESTÁGIO CURRICULAR SUPERVISIONADO",
+        "ESTÁGIO CURRICULAR SUPERVISIONADO I",
+        "GEOMETRIA ANALÍTICA",
+        None,
+    ]
+    saidas = _classificar(nomes, regras.marcar_trabalho_conclusao(), "nome_ccr")
+    assert not any(saidas)
+
+
+# --------------------------------------------------------------------------- #
 # Frequência
 # --------------------------------------------------------------------------- #
 

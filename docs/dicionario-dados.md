@@ -385,7 +385,7 @@ historico ──(ano, semestre, cod_ccr, id_unico_turma::int)──► turmas
 
 | Restrição | Valor medido | Tratamento |
 |---|---|---|
-| Máximo de linhas por requisição | **32.000** — o servidor trunca em silêncio pedidos maiores | paginação `LIMIT`/`OFFSET` com página de 32.000 |
+| Máximo de linhas por requisição | **32.000** — o servidor trunca em silêncio pedidos maiores | paginação `LIMIT`/`OFFSET` com página de 32.000, ordenada por `_id` para que as páginas não se sobreponham (D-38) |
 | `JOIN` entre recursos | **suportado** — validado com `historico ⋈ turmas` filtrando `nome_campus = 'Chapecó'` | o filtro de escopo vai na própria consulta: 431.012 linhas em vez de 1.293.405 |
 | Instabilidade de conexão | resets de TLS em ~10–15% das requisições. O reset atinge a conexão, não a consulta, e envenena o *pool keep-alive*: as chamadas seguintes falham em cascata | política `Retry` do urllib3 no nível do socket, sessão renovada a cada tentativa e consulta por POST |
 | Coluna `_full_text` | índice de busca interno do DataStore, devolvido em todo `SELECT *`; respondia por 74% do volume baixado | descartada na ingestão — não consta de nenhum dicionário publicado |

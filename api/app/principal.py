@@ -31,7 +31,9 @@ app = FastAPI(
     title="Indicadores de Trajetória Discente — UFFS Chapecó",
     description=(
         "Camada de serviço do pipeline analítico sobre os Dados Abertos da UFFS. "
-        "DuckDB consulta os data marts Parquet hospedados no Cloudflare R2."
+        "Os data marts da camada Gold são lidos do Cloudflare R2 e mantidos em "
+        "memória no DuckDB, que responde às consultas. Rotas de dados exigem o "
+        "cabeçalho X-API-Key."
     ),
     version="0.1.0",
     lifespan=ciclo_de_vida,

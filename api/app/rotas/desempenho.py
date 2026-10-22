@@ -7,12 +7,15 @@ filtro mudam de nome (`curso`, `ano`, `semestre`) em relação às Visões 1 e 2
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query
 
 from ..deposito import Deposito, obter_deposito
 from ..filtros import Filtros, obter_filtros
+
+log = logging.getLogger(__name__)
 
 roteador = APIRouter(prefix="/v1/desempenho", tags=["Visão 3 — desempenho e gargalos"])
 
@@ -73,23 +76,63 @@ async def gargalos(
     piso contam só essas.
 
     `codigos` devolve os `cod_ccr` reunidos em cada linha, para rastreabilidade.
+
+    `cursos` lista os cursos atendidos pelas turmas da linha, com as matrículas
+    com resultado de cada um, do maior para o menor (D-40). No recorte de
+    campus, é o que diz de quem é o gargalo: o 1º lugar, TCC III, é quase todo
+    de Filosofia (A-42). O curso é o da turma, não o do estudante (A-33).
+
+    `e_trabalho_conclusao` marca os componentes de trabalho de conclusão de
+    curso, cuja reprovação não é comparável à das disciplinas de conteúdo
+    (A-43, D-41). A classificação vem da Gold (`regras.py`), não daqui.
     """
     dimensoes = AGRUPAMENTOS[agrupamento]
     projecao = ", ".join(dimensoes)
     where, parametros = filtros.clausula(*COLUNAS)
+    tabela = deposito.tabela("visao3_desempenho")
+    if deposito.tem_coluna(tabela, "e_trabalho_conclusao"):
+        marca_tcc = "bool_or(e_trabalho_conclusao)"
+    else:
+        # Mart gravado antes de D-41: responde sem a marcação, mas avisa.
+        log.warning("visao3_desempenho sem 'e_trabalho_conclusao'; rode o pipeline (D-41).")
+        marca_tcc = "false"
     reprovados = "sum(CASE WHEN resultado LIKE 'REPROVADO%' THEN qtd_matriculas ELSE 0 END)"
     sql = f"""
-        SELECT
-            {projecao},
-            count(DISTINCT cod_ccr) AS n_codigos,
-            string_agg(DISTINCT cod_ccr, ', ' ORDER BY cod_ccr) AS codigos,
-            sum(qtd_matriculas) AS total_matriculas,
-            {reprovados} AS reprovados,
-            round(100.0 * {reprovados} / nullif(sum(qtd_matriculas), 0), 2) AS taxa_reprovacao
-        FROM {deposito.tabela("visao3_desempenho")}
-        {_com_resultado(where)}
-        GROUP BY {projecao}
-        HAVING sum(qtd_matriculas) >= ?
+        WITH filtrado AS (
+            SELECT * FROM {tabela}
+            {_com_resultado(where)}
+        ),
+        ranking AS (
+            SELECT
+                {projecao},
+                count(DISTINCT cod_ccr) AS n_codigos,
+                string_agg(DISTINCT cod_ccr, ', ' ORDER BY cod_ccr) AS codigos,
+                sum(qtd_matriculas) AS total_matriculas,
+                {reprovados} AS reprovados,
+                round(100.0 * {reprovados} / nullif(sum(qtd_matriculas), 0), 2) AS taxa_reprovacao,
+                {marca_tcc} AS e_trabalho_conclusao
+            FROM filtrado
+            GROUP BY {projecao}
+            HAVING sum(qtd_matriculas) >= ?
+        ),
+        por_curso AS (
+            SELECT {projecao}, curso AS curso_turma, sum(qtd_matriculas) AS n
+            FROM filtrado
+            GROUP BY {projecao}, curso_turma
+        ),
+        cursos AS (
+            SELECT
+                {projecao},
+                count(*) AS n_cursos,
+                string_agg(
+                    curso_turma || ' (' || CAST(n AS VARCHAR) || ')', ', '
+                    ORDER BY n DESC, curso_turma
+                ) AS cursos
+            FROM por_curso
+            GROUP BY {projecao}
+        )
+        SELECT ranking.*, cursos.n_cursos, cursos.cursos
+        FROM ranking JOIN cursos USING ({projecao})
         ORDER BY taxa_reprovacao DESC, total_matriculas DESC
         LIMIT ?
     """

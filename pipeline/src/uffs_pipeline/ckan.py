@@ -85,18 +85,27 @@ class ClienteCKAN:
                 time.sleep(espera)
         raise ErroCKAN(f"Falha após {self.config.tentativas} tentativas: {ultimo_erro}")
 
-    def consultar_paginado(self, sql: str) -> Iterator[list[dict[str, Any]]]:
+    def consultar_paginado(
+        self, sql: str, ordenar_por: str | None = None
+    ) -> Iterator[list[dict[str, Any]]]:
         """Executa uma consulta SQL paginada, devolvendo um lote por página.
 
         A consulta do catálogo NÃO deve conter LIMIT/OFFSET — eles são
         aplicados aqui, envolvendo a consulta em uma subconsulta.
+
+        `ordenar_por` fixa a ordem das linhas entre páginas. Sem ela, o
+        PostgreSQL do DataStore não garante que LIMIT/OFFSET devolvam páginas
+        disjuntas: uma linha pode vir em duas páginas e outra em nenhuma, sem
+        erro algum (D-38). Toda consulta que possa ter mais de uma página deve
+        passar uma coluna única — na ingestão, `_id`.
         """
         pagina = self.config.tamanho_pagina
         deslocamento = 0
         total = 0
+        ordem = f' ORDER BY "{ordenar_por}"' if ordenar_por else ""
 
         while True:
-            consulta = f"SELECT * FROM ({sql}) AS pagina LIMIT {pagina} OFFSET {deslocamento}"
+            consulta = f"SELECT * FROM ({sql}) AS pagina{ordem} LIMIT {pagina} OFFSET {deslocamento}"
             registros = self._requisitar(self.config.url_sql, {"sql": consulta})["records"]
             if not registros:
                 break
