@@ -338,13 +338,16 @@ def _analise_9(parametros: dict) -> None:
         st.info("Nenhuma reprovação no recorte selecionado.")
         return
 
+    # Denominador: só matrículas com resultado, como no ranking de gargalos e na
+    # média por curso. Trancamento, cancelamento e turma em curso não são
+    # aprovação nem reprovação (D-35, D-42).
     total_reprovacoes = int(reprovacoes["qtd"].sum())
-    total_matriculas = int(dados["qtd"].sum())
+    com_resultado = int(dados.filter(pl.col("resultado") != "NEUTRO")["qtd"].sum())
     a, b = st.columns(2)
     a.metric("Reprovações no recorte", _formatar(total_reprovacoes))
     b.metric(
-        "Sobre o total de matrículas",
-        f"{100 * total_reprovacoes / total_matriculas:.1f}%" if total_matriculas else "—",
+        "Sobre as matrículas com resultado",
+        f"{100 * total_reprovacoes / com_resultado:.1f}%" if com_resultado else "—",
     )
 
     com_percentual = reprovacoes.with_columns(

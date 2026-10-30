@@ -741,6 +741,11 @@ matrículas também passa a contar só matrículas com resultado.
 **Escopo:** só a Análise 7 era afetada. A Análise 9 já filtrava as reprovações
 no painel, e a Análise 8 usa outro mart.
 
+> **Correção (23/10/2026):** o escopo acima estava incompleto. A Análise 9
+> filtrava as reprovações para calcular a **participação** de cada causa, mas a
+> métrica "sobre o total de matrículas" ainda dividia pelo total com as
+> matrículas sem resultado — o mesmo denominador corrigido aqui. Ver D-42.
+
 ## D-36 · Aval da orientadora e encerramento das pendências externas
 
 **14/10/2026**
@@ -929,6 +934,42 @@ comparabilidade, mas não aparecem no topo do *ranking* e não foram examinados.
 no recorte de campus, legenda e nota exibidas, sem erro nos *logs*; contra a
 Gold atual do R2, a rota responde sem a marcação e emite o aviso.
 
+## D-42 · Taxa de reprovação da Análise 9 sobre as matrículas com resultado
+
+**23/10/2026** · `dashboard/visoes/desempenho.py` (`_analise_9`)
+
+**Defeito corrigido**, da mesma família de D-35. A métrica ao lado do gráfico
+dividia as reprovações pelo total de matrículas do recorte, **inclusive** as
+sem resultado (trancamento, cancelamento, desistência, turma em curso). Era a
+única taxa da Visão 3 que ainda usava esse denominador; gargalos (D-35) e média
+por curso (D-34) já o excluíam. Apontado na revisão do texto: o capítulo 6
+precisava explicar por que o painel mostrava 21,7% e o texto 24,0%.
+
+**Correção:** o denominador passa a ser as linhas com `resultado <> 'NEUTRO'`,
+e o rótulo, "Sobre as matrículas com resultado". A rota
+`/v1/desempenho/perfil-reprovacao` não mudou — já devolvia a contagem de cada
+resultado, inclusive `NEUTRO`, que continua visível na tabela do *expander*.
+
+**Efeito**, na data de corte (Gold reconstruída localmente da Bronze de
+13/10/2026, sem gravar no R2), recorte de campus:
+
+| | Antes | Depois |
+|---|---:|---:|
+| Reprovações (com L-11) | 93.286 | 93.286 |
+| Denominador (com L-11) | 429.768 | 388.089 |
+| Taxa exibida | 21,7% | 24,0% |
+
+Sem a duplicação de L-11, são 90.951 reprovações em 378.417 matrículas com
+resultado, 24,0% — o painel e o texto passam a coincidir na taxa. A
+participação das causas não muda: 58,7% / 40,8% / 0,5% no painel (com L-11),
+58,3% / 41,2% / 0,5% sem duplicação.
+
+**Onde entra:** Resultados (Visão 3), parágrafo que explica a diferença entre
+figura e texto; a figura da Análise 9 foi recapturada com a correção.
+
+**Implantação:** só o painel muda; vale em produção assim que o Streamlit
+Community Cloud reimplantar o commit.
+
 ---
 
 # Achados
@@ -976,7 +1017,7 @@ Gold atual do R2, a rota responde sem a marcação e emite o aviso.
 | **A-39** | **Entre os cursos, quanto menor a média de notas, maior a evasão de curso.** Correlação ecológica, entre cursos e não entre estudantes | data de corte, 13 cursos com mais de 500 vínculos: Pearson −0,93, Spearman −0,83; sem Medicina, −0,84 e −0,78. Nos extremos, Medicina tem média 8,52 e evasão 26,6%; Matemática, 5,53 e 80,2%; Ciências Sociais, 5,75 e 82,7%. A média vem das turmas que atendem o curso e a evasão, dos vínculos — não há como ligar o desempenho de um estudante à sua evasão (L-01). Não controla seletividade de ingresso nem natureza dos cursos | Resultados (Visão 3, com a ressalva de que é associação entre cursos e não causa) |
 | **A-40** | **A média final cai de forma abrupta abaixo do piso de 75% de frequência** | data de corte, Análise 8: média de 6,41 na faixa de 75–80% contra 2,24 na de 70–75%; 0,69 em todas as faixas abaixo de 75% somadas (53.994 matrículas) contra 7,28 acima (329.721). A faixa de 0–5% tem 6.211 matrículas, com média 0,03. A queda é coerente com o abandono da disciplina — quem deixa de frequentar costuma ficar sem nota —, mas os dados não distinguem abandono de desempenho | Resultados (Visão 3) |
 | **A-41** | **Os três cursos ausentes de `matrizes` são cursos novos, e não extintos.** O rótulo "extinto" vinha de uma suposição de 29/08 (D-07) que se propagou para o código, os docs e o texto | data de corte, Silver de `ingressantes`: Educação Especial Inclusiva (1750) só tem ingresso em 2024 (26 vínculos; 17 `ATIVO - FORMANDO`, 9 cancelados); Ciências Econômicas (1610) em 2025–2026 (138; 98 ativos); Engenharia Civil (1310) em 2026 (43; 36 ativos). Nenhum concluinte. Matrizes informadas na própria base de ingressantes: 2024/2, 2025/1 e 2025/2. O único curso "Em Extinção" em `matrizes` é Filosofia matutino. Por que a origem não publica essas matrizes não se sabe | Desenvolvimento (dimensão de curso) e Resultados (Análises 4 e 10). Corrigido nos capítulos 5, 6 e 7 |
-| **A-42** | **O primeiro lugar do ranking de gargalos (TCC III) é de Filosofia e não mede dificuldade de disciplina: é a reprovação de quem não entregou o trabalho** | data de corte, mart `visao3_desempenho`: 346 matrículas com resultado no campus, 326 de Filosofia (GCH138, 2013–2021: 211, 69,2%; GCH860, 2021–2026: 115, 73,0%) e 20 de Ciências Sociais (GCH1411, 2024–2026, 35,0%). Em Filosofia, 226 das 230 reprovações são só por nota, com **média 0,11 e frequência média de 99,8%**; as 96 aprovações têm média 9,13. Nota zero com presença integral é o padrão de trabalho não entregue ou não defendido no semestre. Sem identificador de estudante (L-01), não se sabe quantas dessas matrículas são o mesmo estudante rematriculado, o que pode inflar a taxa | Resultados (Visão 3, leitura do ranking de gargalos) |
+| **A-42** | **O primeiro lugar do ranking de gargalos (TCC III) é de Filosofia e não mede dificuldade de disciplina: é a reprovação de quem não entregou o trabalho** | data de corte, mart `visao3_desempenho`: 346 matrículas com resultado no campus, 326 de Filosofia (GCH138, 2013–2021: 211, 69,2%; GCH860, 2021–2026: 115, 73,0%) e 20 de Ciências Sociais (GCH1411, 2024–2026, 35,0%). Em Filosofia, 226 das 230 reprovações são só por nota, com **média 0,11 e frequência média de 99,8%** (98,1% sobre as 230 reprovações, contando as 4 por nota e frequência — é o número do texto, que fala de todos os reprovados; conferido em 23/10/2026); as 96 aprovações têm média 9,13. Nota zero com presença integral é o padrão de trabalho não entregue ou não defendido no semestre. Sem identificador de estudante (L-01), não se sabe quantas dessas matrículas são o mesmo estudante rematriculado, o que pode inflar a taxa | Resultados (Visão 3, leitura do ranking de gargalos) |
 | **A-43** | **Componentes de trabalho de conclusão não são comparáveis entre cursos, e o agrupamento por nome (D-27) junta homônimos de cursos diferentes** | data de corte, mart `visao3_desempenho`, nomes com "conclusão" ou "trabalho de curso": 29 componentes em 13 cursos. Agronomia tem 1; Filosofia e Ciências Sociais, 3 (TCC III de C. Sociais só desde 2024); os demais, 2 (Administração trocou Laboratório de Gestão III/IV por TCC I/II em 2019–2020). Nomes variam: "Trabalho de Curso" (Medicina), "Seminário de TCC" (História), "Trabalho de Conclusão do Curso" (Geografia). Reprovação de 0% (Medicina) e 1,4% (TCC I de Enfermagem) a 70,6% (TCC III de Filosofia). Nos 27 com alguma reprovação, média final dos reprovados < 2 em 25 e frequência média ≥ 75% em 18 — perfil de trabalho não entregue, não de avaliação. No recorte de campus, "TCC I" e "TCC II" reúnem, cada um, homônimos de 9 cursos, com taxas de 1,4% a 51,8% | Resultados (Visão 3, leitura do ranking); Limitações do agrupamento por nome |
 
 > **A-18 e A-30 são descrição, não explicação.** A quebra por curso, coorte e
